@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <title>Zapiski</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f0f1a;
+      --surface:   #1a1a2e;
+      --card:      #16213e;
+      --accent:    #7c3aed;
+      --accent2:   #5568f7;
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --border:    #2d2d4e;
+      --danger:    #ef4444;
+      --safe:      #22c55e;
+      --radius:    16px;
+      --shadow:    0 4px 24px rgba(0,0,0,.4);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── SCREENS ─────────────────────────────────────────── */
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; transition: transform .3s cubic-bezier(.4,0,.2,1), opacity .3s; }
+    .screen.hidden { transform: translateX(100%); opacity: 0; pointer-events: none; }
+
+    /* ── TOP BAR ─────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 20px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -.5px; flex: 1; }
+    .topbar h1 span { color: var(--accent2); }
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: none; background: var(--card);
+      color: var(--text); font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .2s, transform .1s;
+      flex-shrink: 0;
+    }
+    .icon-btn:active { transform: scale(.92); background: var(--border); }
+
+    /* ── SEARCH ──────────────────────────────────────────── */
+    .search-wrap {
+      padding: 12px 20px;
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 10px 16px 10px 40px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-wrap input::placeholder { color: var(--muted); }
+    .search-wrap input:focus { border-color: var(--accent); }
+    .search-icon {
+      position: relative;
+    }
+    .search-icon::before {
+      content: '🔍';
+      position: absolute; left: 32px; top: 50%; transform: translateY(-50%);
+      font-size: .85rem; pointer-events: none; z-index: 1;
+    }
+
+    /* ── NOTES LIST ──────────────────────────────────────── */
+    .notes-list { flex: 1; overflow-y: auto; padding: 12px 16px 80px; }
+    .notes-list::-webkit-scrollbar { width: 0; }
+
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 12px;
+      height: 100%; color: var(--muted); text-align: center; padding: 32px;
+    }
+    .empty-state .emoji { font-size: 3.5rem; }
+    .empty-state p { font-size: .95rem; line-height: 1.5; }
+
+    /* ── NOTE CARD ───────────────────────────────────────── */
+    .note-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color .2s, transform .15s;
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .note-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--accent2);
+      border-radius: 3px 0 0 3px;
+    }
+    .note-card:active { transform: scale(.98); border-color: var(--accent); }
+    .note-card.pinned::before { background: #f59e0b; }
+
+    .note-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .note-title { font-size: 1rem; font-weight: 600; line-height: 1.3; flex: 1; word-break: break-word; }
+    .pin-icon { font-size: .9rem; opacity: .7; flex-shrink: 0; }
+    .note-preview { font-size: .85rem; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .note-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .note-date { font-size: .75rem; color: var(--muted); flex: 1; }
+    .note-tag {
+      font-size: .7rem; padding: 2px 8px; border-radius: 20px;
+      background: rgba(124,58,237,.25); color: var(--accent2);
+      border: 1px solid rgba(124,58,237,.3);
+      white-space: nowrap;
+    }
+
+    /* ── FAB ─────────────────────────────────────────────── */
+    .fab {
+      position: absolute; bottom: 24px; right: 20px;
+      width: 58px; height: 58px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; color: #fff; font-size: 1.6rem;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(124,58,237,.5);
+      cursor: pointer; transition: transform .2s, box-shadow .2s;
+      z-index: 10;
+    }
+    .fab:active { transform: scale(.92); box-shadow: 0 2px 10px rgba(124,58,237,.4); }
+
+    /* ── EDITOR SCREEN ───────────────────────────────────── */
+    #screen-editor { background: var(--bg); z-index: 20; }
+
+    .editor-topbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 16px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .editor-topbar .back-btn {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: none; color: var(--accent2);
+      font-size: 1.4rem; cursor: pointer; border-radius: 50%;
+      transition: background .2s;
+    }
+    .editor-topbar .back-btn:active { background: var(--border); }
+    .editor-topbar .actions { display: flex; gap: 6px; margin-left: auto; }
+
+    .editor-title {
+      width: 100%; border: none; outline: none;
+      background: transparent; color: var(--text);
+      font-size: 1.25rem; font-weight: 700;
+      padding: 16px 20px 8px;
+      flex-shrink: 0;
+    }
+    .editor-title::placeholder { color: var(--border); }
+
+    .editor-toolbar {
+      display: flex; gap: 4px; flex-wrap: wrap;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .editor-toolbar::-webkit-scrollbar { height: 0; }
+    .tool-btn {
+      padding: 6px 10px; border-radius: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-size: .85rem;
+      cursor: pointer; transition: background .15s, border-color .15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .tool-btn:active { background: var(--accent); border-color: var(--accent); }
+
+    .editor-body {
+      flex: 1; overflow-y: auto; padding: 0;
+      display: flex; flex-direction: column;
+    }
+    .editor-body::-webkit-scrollbar { width: 0; }
+
+    #note-content {
+      flex: 1; width: 100%;
+      border: none; outline: none; resize: none;
+      background: transparent; color: var(--text);
+      font-size: 1rem; line-height: 1.75;
+      padding: 12px 20px 100px;
+      font-family: inherit;
+      min-height: 300px;
+    }
+    #note-content::placeholder { color: var(--border); }
+
+    .editor-footer {
+      padding: 8px 20px 16px;
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .tag-input {
+      flex: 1; border: none; outline: none;
+      background: transparent; color: var(--muted);
+      font-size: .85rem;
+    }
+    .tag-input::placeholder { color: var(--border); }
+    .save-status { font-size: .75rem; color: var(--muted); }
+
+    /* ── DELETE MODAL ────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 24px 24px 40px;
+      width: 100%; max-width: 480px;
+      transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+      border-top: 1px solid var(--border);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .modal p { color: var(--muted); font-size: .9rem; margin-bottom: 20px; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 10px; }
+    .btn {
+      flex: 1; padding: 13px; border-radius: 12px;
+      border: none; font-size: .95rem; font-weight: 600;
+      cursor: pointer; transition: transform .15s, opacity .15s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-cancel { background: var(--card); color: var(--text); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+
+    /* ── TOAST ───────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 20px; border-radius: 12px;
+      font-size: .9rem; z-index: 200; transition: bottom .3s ease;
+      white-space: nowrap; box-shadow: var(--shadow);
+    }
+    .toast.show { bottom: 32px; }
+
+    /* ── STATS BAR ───────────────────────────────────────── */
+    .stats-bar {
+      display: flex; gap: 16px;
+      padding: 8px 20px 4px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .stat { font-size: .75rem; color: var(--muted); }
+    .stat strong { color: var(--accent2); }
+
+    /* ── SORT BTN ────────────────────────────────────────── */
+    .sort-btn {
+      font-size: .75rem; color: var(--muted);
+      background: none; border: none; cursor: pointer;
+      margin-left: auto; display: flex; align-items: center; gap: 4px;
+      padding: 0;
+    }
+    .sort-btn:hover { color: var(--text); }
+
+    /* ── CHAR COUNT ──────────────────────────────────────── */
+    .char-count { font-size: .72rem; color: var(--muted); flex-shrink: 0; }
+
+    /* ══════════════════════════════════════════════════════
+       BOTTOM NAV
+    ══════════════════════════════════════════════════════ */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+      display: flex; background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .nav-tab {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 3px; padding: 10px 0 8px;
+      border: none; background: none; color: var(--muted);
+      font-size: .7rem; cursor: pointer; transition: color .2s;
+      position: relative;
+    }
+    .nav-tab .nav-icon { font-size: 1.3rem; line-height: 1; }
+    .nav-tab.active { color: var(--accent2); }
+    .nav-tab.active::after {
+      content: ''; position: absolute; top: 0; left: 20%; right: 20%;
+      height: 2px; background: var(--accent2); border-radius: 0 0 4px 4px;
+    }
+
+    /* ── push content above nav on list/finance screens ── */
+    #screen-list   .notes-list  { padding-bottom: 90px; }
+    #screen-finance .fin-list   { padding-bottom: 90px; }
+
+    /* ══════════════════════════════════════════════════════
+       FINANCE SCREEN
+    ══════════════════════════════════════════════════════ */
+    #screen-finance { background: var(--bg); }
+
+    /* summary cards */
+    .fin-summary {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px; padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .fin-sum-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .fin-sum-card .sum-label { font-size: .65rem; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+    .fin-sum-card .sum-val   { font-size: .95rem; font-weight: 700; }
+    .fin-sum-card.total  .sum-val { color: var(--text); }
+    .fin-sum-card.paid   .sum-val { color: var(--safe); }
+    .fin-sum-card.open   .sum-val { color: #f59e0b; }
+    .fin-sum-card.late   .sum-val { color: var(--danger); }
+
+    /* filter bar */
+    .fin-filters {
+      display: flex; gap: 6px; padding: 10px 16px;
+      overflow-x: auto; flex-shrink: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .fin-filters::-webkit-scrollbar { height: 0; }
+    .filter-chip {
+      padding: 6px 14px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card); color: var(--muted);
+      font-size: .8rem; cursor: pointer; white-space: nowrap;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* month nav */
+    .month-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .month-nav span { font-size: .95rem; font-weight: 600; }
+    .month-arrow {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--text); font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s;
+    }
+    .month-arrow:active { background: var(--accent); }
+
+    /* list */
+    .fin-list { flex: 1; overflow-y: auto; padding: 12px 16px; }
+    .fin-list::-webkit-scrollbar { width: 0; }
+
+    /* expense card */
+    .exp-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 14px 12px;
+      margin-bottom: 10px;
+      position: relative; overflow: hidden;
+      animation: fadeIn .25s ease;
+      cursor: pointer;
+      transition: border-color .2s, transform .15s;
+    }
+    .exp-card:active { transform: scale(.98); }
+    .exp-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 4px; border-radius: 4px 0 0 4px;
+    }
+    .exp-card.status-paid    { border-color: rgba(34,197,94,.25); }
+    .exp-card.status-paid::before    { background: var(--safe); }
+    .exp-card.status-pending { border-color: rgba(245,158,11,.25); }
+    .exp-card.status-pending::before { background: #f59e0b; }
+    .exp-card.status-late    { border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.04); }
+    .exp-card.status-late::before    { background: var(--danger); }
+
+    .exp-row1 { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+    .exp-cat-icon { font-size: 1.5rem; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .exp-info { flex: 1; min-width: 0; }
+    .exp-name { font-size: .95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exp-desc { font-size: .78rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exp-amount {
+      font-size: 1.05rem; font-weight: 700; flex-shrink: 0;
+      color: var(--text);
+    }
+    .exp-amount.paid-amt { color: var(--safe); }
+    .exp-amount.late-amt { color: var(--danger); }
+
+    .exp-row2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .exp-badge {
+      font-size: .68rem; padding: 2px 8px; border-radius: 20px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-paid    { background: rgba(34,197,94,.18);  color: var(--safe);    border: 1px solid rgba(34,197,94,.3); }
+    .badge-pending { background: rgba(245,158,11,.18); color: #f59e0b;        border: 1px solid rgba(245,158,11,.3); }
+    .badge-late    { background: rgba(239,68,68,.2);   color: var(--danger);  border: 1px solid rgba(239,68,68,.35); }
+    .exp-due  { font-size: .73rem; color: var(--muted); }
+    .exp-recur { font-size: .73rem; color: var(--muted); }
+    .exp-parc  { font-size: .73rem; color: var(--muted); }
+    .exp-toggle-paid {
+      margin-left: auto; padding: 4px 12px; border-radius: 20px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--muted); font-size: .75rem; cursor: pointer;
+      transition: all .15s; white-space: nowrap;
+    }
+    .exp-toggle-paid:active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── EXPENSE FORM MODAL ─────────────────────────────── */
+    #modal-expense .modal {
+      max-height: 92vh; overflow-y: auto;
+      padding: 20px 20px 40px;
+    }
+    #modal-expense .modal::-webkit-scrollbar { width: 0; }
+    .modal-title {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .modal-title h3 { font-size: 1.1rem; }
+    .modal-close {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--text); font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block; font-size: .78rem; color: var(--muted);
+      margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%; padding: 11px 14px;
+      border-radius: 10px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text);
+      font-size: .95rem; font-family: inherit;
+      outline: none; transition: border-color .2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+    .form-input::placeholder, .form-textarea::placeholder { color: var(--border); }
+    .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+    .form-select option { background: #1a1a2e; }
+    .form-textarea { resize: none; height: 72px; line-height: 1.5; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .cat-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    }
+    .cat-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 8px 4px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--card);
+      cursor: pointer; transition: all .15s; font-size: .65rem; color: var(--muted);
+    }
+    .cat-btn .cat-em { font-size: 1.4rem; }
+    .cat-btn.selected { border-color: var(--accent); background: rgba(124,58,237,.15); color: var(--accent2); }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0;
+    }
+    .toggle-label { font-size: .9rem; color: var(--text); }
+    .toggle-sub   { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+    .toggle-switch {
+      position: relative; width: 44px; height: 26px; flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 13px;
+      background: var(--border); transition: background .2s; cursor: pointer;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: transform .2s;
+    }
+    .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
+
+    /* installment fields */
+    #parc-fields { display: none; }
+    #parc-fields.visible { display: block; }
+    #repeat-fields { display: none; }
+    #repeat-fields.visible { display: block; }
+
+    .form-section-title {
+      font-size: .7rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .5px; font-weight: 700;
+      margin: 16px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px;
+    }
+
+    /* status selector */
+    .status-btns { display: flex; gap: 8px; }
+    .status-opt {
+      flex: 1; padding: 9px; border-radius: 10px; text-align: center;
+      border: 1px solid var(--border); background: var(--card);
+      font-size: .8rem; cursor: pointer; transition: all .15s;
+      color: var(--muted);
+    }
+    .status-opt.sel-paid    { background: rgba(34,197,94,.18);  border-color: rgba(34,197,94,.5);  color: var(--safe); }
+    .status-opt.sel-pending { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.5); color: #f59e0b; }
+    .status-opt.sel-late    { background: rgba(239,68,68,.18);  border-color: rgba(239,68,68,.5);  color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ BOTTOM NAV ═══════════════════════════ -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-tab active" data-tab="notes">
+    <span class="nav-icon">📝</span>
+    <span>Notas</span>
+  </button>
+  <button class="nav-tab" data-tab="finance">
+    <span class="nav-icon">💰</span>
+    <span>Finanças</span>
+  </button>
+</nav>
+
+<!-- ═══════════════════════════ LIST SCREEN ═══════════════════════════ -->
+<div class="screen" id="screen-list">
+  <div class="topbar">
+    <h1>Zapis<span>ki</span></h1>
+    <button class="icon-btn" id="btn-sort" title="Ordenar">⇅</button>
+  </div>
+
+  <div class="stats-bar">
+    <span class="stat"><strong id="count-total">0</strong> notas</span>
+    <span class="stat"><strong id="count-pinned">0</strong> fixadas</span>
+    <button class="sort-btn" id="sort-label">📅 Recentes ▾</button>
+  </div>
+
+  <div class="search-wrap search-icon">
+    <input type="search" id="search-input" placeholder="Pesquisar notas..." autocomplete="off" />
+  </div>
+
+  <div class="notes-list" id="notes-list"></div>
+
+  <button class="fab" id="btn-new" title="Nova nota">＋</button>
+</div>
+
+<!-- ═══════════════════════════ EDITOR SCREEN ═══════════════════════════ -->
+<div class="screen hidden" id="screen-editor">
+  <div class="editor-topbar">
+    <button class="back-btn" id="btn-back">‹</button>
+    <div class="actions">
+      <button class="icon-btn" id="btn-pin" title="Fixar">📌</button>
+      <button class="icon-btn" id="btn-delete" title="Excluir" style="color:var(--danger)">🗑</button>
+    </div>
+  </div>
+
+  <input type="text" id="note-title" class="editor-title" placeholder="Título…" maxlength="120" />
+
+  <div class="editor-toolbar">
+    <button class="tool-btn" data-wrap="**" data-wrap-end="**">B</button>
+    <button class="tool-btn" data-wrap="_" data-wrap-end="_"><em>I</em></button>
+    <button class="tool-btn" data-prefix="- ">• Lista</button>
+    <button class="tool-btn" data-prefix="[ ] ">☐ Tarefa</button>
+    <button class="tool-btn" data-prefix="# ">H1</button>
+    <button class="tool-btn" data-prefix="## ">H2</button>
+    <button class="tool-btn" data-prefix="> ">❝ Citar</button>
+    <button class="tool-btn" data-separator="---">─ Linha</button>
+  </div>
+
+  <div class="editor-body">
+    <textarea id="note-content" placeholder="Escreva sua nota…" spellcheck="true"></textarea>
+  </div>
+
+  <div class="editor-footer">
+    <span style="font-size:.85rem; color:var(--muted)">🏷</span>
+    <input type="text" id="tag-input" class="tag-input" placeholder="Tag (ex: trabalho, pessoal…)" maxlength="30" />
+    <span class="char-count" id="char-count">0</span>
+    <span class="save-status" id="save-status">●</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ FINANCE SCREEN ═══════════════════════════ -->
+<div class="screen hidden" id="screen-finance">
+  <div class="topbar">
+    <h1>💰 Finan<span>ças</span></h1>
+  </div>
+
+  <div class="fin-summary">
+    <div class="fin-sum-card total">
+      <span class="sum-label">Total</span>
+      <span class="sum-val" id="fin-total">R$0</span>
+    </div>
+    <div class="fin-sum-card paid">
+      <span class="sum-label">Pago</span>
+      <span class="sum-val" id="fin-paid">R$0</span>
+    </div>
+    <div class="fin-sum-card open">
+      <span class="sum-label">Aberto</span>
+      <span class="sum-val" id="fin-open">R$0</span>
+    </div>
+  </div>
+
+  <div class="month-nav">
+    <button class="month-arrow" id="fin-month-prev">‹</button>
+    <span id="fin-month-label"></span>
+    <button class="month-arrow" id="fin-month-next">›</button>
+  </div>
+
+  <div class="fin-filters">
+    <button class="filter-chip active" data-filter="all">Todas</button>
+    <button class="filter-chip" data-filter="pending">⏳ Abertas</button>
+    <button class="filter-chip" data-filter="late">🔴 Atrasadas</button>
+    <button class="filter-chip" data-filter="paid">✅ Pagas</button>
+  </div>
+
+  <div class="fin-list" id="fin-list"></div>
+
+  <button class="fab" id="btn-new-expense">＋</button>
+</div>
+
+<!-- ═══════════════════════════ DELETE MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal">
+    <h3>Excluir nota?</h3>
+    <p>Essa ação não pode ser desfeita. A nota será removida permanentemente.</p>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-danger" id="modal-confirm">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ DELETE EXPENSE MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="modal-del-expense">
+  <div class="modal">
+    <h3>Excluir despesa?</h3>
+    <p>A despesa será removida permanentemente do seu controle financeiro.</p>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="del-exp-cancel">Cancelar</button>
+      <button class="btn btn-danger" id="del-exp-confirm">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ EXPENSE FORM MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="modal-expense">
+  <div class="modal">
+    <div class="modal-title">
+      <h3 id="exp-form-title">Nova Despesa</h3>
+      <button class="modal-close" id="exp-form-close">✕</button>
+    </div>
+
+    <!-- NOME + VALOR -->
+    <div class="form-group">
+      <label class="form-label">Nome da despesa *</label>
+      <input type="text" id="ef-name" class="form-input" placeholder="Ex: Aluguel, Netflix, Luz…" maxlength="80" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Valor (R$) *</label>
+        <input type="number" id="ef-amount" class="form-input" placeholder="0,00" min="0" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vencimento *</label>
+        <input type="date" id="ef-due" class="form-input" />
+      </div>
+    </div>
+
+    <!-- CATEGORIA -->
+    <div class="form-group">
+      <label class="form-label">Categoria</label>
+      <div class="cat-grid" id="cat-grid">
+        <button class="cat-btn selected" data-cat="outros"><span class="cat-em">🏷️</span>Outros</button>
+        <button class="cat-btn" data-cat="moradia"><span class="cat-em">🏠</span>Moradia</button>
+        <button class="cat-btn" data-cat="alimentacao"><span class="cat-em">🍔</span>Alimentação</button>
+        <button class="cat-btn" data-cat="transporte"><span class="cat-em">🚗</span>Transporte</button>
+        <button class="cat-btn" data-cat="saude"><span class="cat-em">💊</span>Saúde</button>
+        <button class="cat-btn" data-cat="educacao"><span class="cat-em">📚</span>Educação</button>
+        <button class="cat-btn" data-cat="lazer"><span class="cat-em">🎮</span>Lazer</button>
+        <button class="cat-btn" data-cat="assinatura"><span class="cat-em">📡</span>Assinatura</button>
+        <button class="cat-btn" data-cat="cartao"><span class="cat-em">💳</span>Cartão</button>
+        <button class="cat-btn" data-cat="investimento"><span class="cat-em">📈</span>Invest.</button>
+        <button class="cat-btn" data-cat="pet"><span class="cat-em">🐾</span>Pet</button>
+        <button class="cat-btn" data-cat="vestuario"><span class="cat-em">👕</span>Roupas</button>
+      </div>
+    </div>
+
+    <!-- DESCRIÇÃO -->
+    <div class="form-group">
+      <label class="form-label">Descrição / observação</label>
+      <textarea id="ef-desc" class="form-textarea" placeholder="Detalhes opcionais…"></textarea>
+    </div>
+
+    <!-- STATUS -->
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <div class="status-btns">
+        <button class="status-opt sel-pending" data-status="pending">⏳ Pendente</button>
+        <button class="status-opt" data-status="paid">✅ Pago</button>
+        <button class="status-opt" data-status="late">🔴 Atrasado</button>
+      </div>
+    </div>
+
+    <!-- PARCELADO -->
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Parcelado</div>
+        <div class="toggle-sub">Dividir em parcelas</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="ef-installment" />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div id="parc-fields">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nº de parcelas</label>
+          <input type="number" id="ef-parc-total" class="form-input" placeholder="Ex: 12" min="2" max="360" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Parcela atual</label>
+          <input type="number" id="ef-parc-current" class="form-input" placeholder="Ex: 1" min="1" max="360" />
+        </div>
+      </div>
+    </div>
+
+    <!-- REPETIR -->
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Repetir</div>
+        <div class="toggle-sub">Despesa recorrente</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="ef-repeat" />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div id="repeat-fields">
+      <div class="form-group">
+        <label class="form-label">Frequência</label>
+        <select id="ef-freq" class="form-select">
+          <option value="monthly">Mensal</option>
+          <option value="weekly">Semanal</option>
+          <option value="biweekly">Quinzenal</option>
+          <option value="yearly">Anual</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button class="btn btn-danger" id="ef-delete" style="display:none; flex:0 0 auto; padding:13px 18px;">🗑</button>
+      <button class="btn btn-primary" id="ef-save" style="flex:1;">Salvar despesa</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ TOAST ═══════════════════════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ── STORAGE ──────────────────────────────────────────────────── */
+  const STORE_KEY = 'zapiski_v1';
+
+  function loadNotes() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveNotes(notes) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(notes));
+  }
+
+  /* ── STATE ────────────────────────────────────────────────────── */
+  let notes       = loadNotes();
+  let currentId   = null;
+  let sortMode    = 'recent';   // 'recent' | 'alpha' | 'oldest'
+  let saveTimer   = null;
+
+  /* ── UTILS ────────────────────────────────────────────────────── */
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000)   return 'agora mesmo';
+    if (diff < 3600000) return Math.floor(diff/60000) + 'min atrás';
+    if (diff < 86400000) return Math.floor(diff/3600000) + 'h atrás';
+    const opts = diff < 604800000
+      ? { weekday: 'short', hour: '2-digit', minute: '2-digit' }
+      : { day: '2-digit', month: 'short', year: 'numeric' };
+    return d.toLocaleDateString('pt-BR', opts);
+  }
+
+  function findNote(id) { return notes.find(n => n.id === id); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  /* ── SCREENS ──────────────────────────────────────────────────── */
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => {
+      s.classList.toggle('hidden', s.id !== id);
+    });
+  }
+
+  /* ── RENDER LIST ──────────────────────────────────────────────── */
+  function getSorted(arr) {
+    const pinned = arr.filter(n => n.pinned);
+    const rest   = arr.filter(n => !n.pinned);
+    const sort = list => {
+      if (sortMode === 'alpha')  return [...list].sort((a,b) => (a.title||'').localeCompare(b.title||''));
+      if (sortMode === 'oldest') return [...list].sort((a,b) => a.updatedAt - b.updatedAt);
+      return [...list].sort((a,b) => b.updatedAt - a.updatedAt);
+    };
+    return [...sort(pinned), ...sort(rest)];
+  }
+
+  function renderList() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    const list  = document.getElementById('notes-list');
+
+    let filtered = query
+      ? notes.filter(n =>
+          (n.title||'').toLowerCase().includes(query) ||
+          (n.content||'').toLowerCase().includes(query) ||
+          (n.tag||'').toLowerCase().includes(query))
+      : notes;
+
+    const sorted = getSorted(filtered);
+
+    document.getElementById('count-total').textContent  = notes.length;
+    document.getElementById('count-pinned').textContent = notes.filter(n => n.pinned).length;
+
+    if (sorted.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <span class="emoji">${query ? '🔍' : '📝'}</span>
+          <p>${query ? 'Nenhuma nota encontrada para "<strong>' + escHtml(query) + '</strong>".' : 'Nenhuma nota ainda.<br>Toque em <strong>＋</strong> para criar sua primeira nota!'}</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = sorted.map(n => `
+      <div class="note-card${n.pinned ? ' pinned' : ''}" data-id="${n.id}">
+        <div class="note-card-header">
+          <span class="note-title">${escHtml(n.title || 'Sem título')}</span>
+          ${n.pinned ? '<span class="pin-icon">📌</span>' : ''}
+        </div>
+        <div class="note-preview">${escHtml(n.content || '')}</div>
+        <div class="note-meta">
+          <span class="note-date">${fmtDate(n.updatedAt)}</span>
+          ${n.tag ? `<span class="note-tag">${escHtml(n.tag)}</span>` : ''}
+        </div>
+      </div>`).join('');
+
+    list.querySelectorAll('.note-card').forEach(card => {
+      card.addEventListener('click', () => openNote(card.dataset.id));
+    });
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ── OPEN / CREATE NOTE ───────────────────────────────────────── */
+  function openNote(id) {
+    currentId = id;
+    const note = findNote(id);
+    document.getElementById('note-title').value   = note.title   || '';
+    document.getElementById('note-content').value = note.content || '';
+    document.getElementById('tag-input').value    = note.tag     || '';
+    updateCharCount();
+    updatePinBtn();
+    document.getElementById('save-status').textContent = '✓';
+    showScreen('screen-editor');
+    setTimeout(() => document.getElementById('note-content').focus(), 200);
+  }
+
+  function newNote() {
+    const note = {
+      id:        uid(),
+      title:     '',
+      content:   '',
+      tag:       '',
+      pinned:    false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    notes.unshift(note);
+    saveNotes(notes);
+    openNote(note.id);
+  }
+
+  /* ── AUTO-SAVE ────────────────────────────────────────────────── */
+  function scheduleAutosave() {
+    document.getElementById('save-status').textContent = '…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(commitSave, 800);
+  }
+
+  function commitSave() {
+    if (!currentId) return;
+    const note = findNote(currentId);
+    if (!note) return;
+    note.title     = document.getElementById('note-title').value.trim();
+    note.content   = document.getElementById('note-content').value;
+    note.tag       = document.getElementById('tag-input').value.trim().toLowerCase();
+    note.updatedAt = Date.now();
+    saveNotes(notes);
+    document.getElementById('save-status').textContent = '✓';
+  }
+
+  function updateCharCount() {
+    const len = document.getElementById('note-content').value.length;
+    document.getElementById('char-count').textContent = len.toLocaleString('pt-BR');
+  }
+
+  /* ── PIN ──────────────────────────────────────────────────────── */
+  function updatePinBtn() {
+    const note = findNote(currentId);
+    const btn  = document.getElementById('btn-pin');
+    btn.style.opacity = note && note.pinned ? '1' : '.45';
+    btn.title = note && note.pinned ? 'Desafixar' : 'Fixar';
+  }
+
+  /* ── DELETE ───────────────────────────────────────────────────── */
+  function openDeleteModal() {
+    document.getElementById('modal-delete').classList.add('open');
+  }
+  function closeDeleteModal() {
+    document.getElementById('modal-delete').classList.remove('open');
+  }
+  function confirmDelete() {
+    notes = notes.filter(n => n.id !== currentId);
+    saveNotes(notes);
+    closeDeleteModal();
+    showToast('Nota excluída');
+    currentId = null;
+    renderList();
+    showScreen('screen-list');
+  }
+
+  /* ── SORT ─────────────────────────────────────────────────────── */
+  const SORT_MODES = [
+    { key: 'recent',  label: '📅 Recentes ▾' },
+    { key: 'oldest',  label: '📅 Antigas ▾'  },
+    { key: 'alpha',   label: '🔤 A → Z ▾'   },
+  ];
+  function cycleSort() {
+    const idx = SORT_MODES.findIndex(m => m.key === sortMode);
+    sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length].key;
+    document.getElementById('sort-label').textContent = SORT_MODES.find(m => m.key === sortMode).label;
+    renderList();
+  }
+
+  /* ── TOOLBAR ──────────────────────────────────────────────────── */
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.addEventListener('mousedown', e => { e.preventDefault(); });
+    btn.addEventListener('click', () => {
+      const ta    = document.getElementById('note-content');
+      const start = ta.selectionStart;
+      const end   = ta.selectionEnd;
+      const sel   = ta.value.slice(start, end);
+
+      if (btn.dataset.wrap) {
+        const w = btn.dataset.wrap;
+        const we = btn.dataset.wrapEnd || w;
+        const insert = w + (sel || 'texto') + we;
+        ta.setRangeText(insert, start, end, 'end');
+        if (!sel) {
+          ta.selectionStart = start + w.length;
+          ta.selectionEnd   = start + w.length + 5;
+        }
+      } else if (btn.dataset.prefix) {
+        const p = btn.dataset.prefix;
+        const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
+        ta.setRangeText(p, lineStart, lineStart, 'end');
+      } else if (btn.dataset.separator) {
+        const sep = '\n' + btn.dataset.separator + '\n';
+        ta.setRangeText(sep, end, end, 'end');
+      }
+
+      ta.focus();
+      scheduleAutosave();
+      updateCharCount();
+    });
+  });
+
+  /* ── BACK ─────────────────────────────────────────────────────── */
+  function goBack() {
+    commitSave();
+    renderList();
+    showScreen('screen-list');
+    currentId = null;
+  }
+
+  /* ── EVENTS ───────────────────────────────────────────────────── */
+  document.getElementById('btn-new').addEventListener('click', newNote);
+  document.getElementById('btn-back').addEventListener('click', goBack);
+  document.getElementById('btn-sort').addEventListener('click', cycleSort);
+  document.getElementById('sort-label').addEventListener('click', cycleSort);
+
+  document.getElementById('btn-pin').addEventListener('click', () => {
+    const note = findNote(currentId);
+    if (!note) return;
+    note.pinned = !note.pinned;
+    saveNotes(notes);
+    updatePinBtn();
+    showToast(note.pinned ? '📌 Nota fixada' : 'Nota desafixada');
+  });
+
+  document.getElementById('btn-delete').addEventListener('click', openDeleteModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeDeleteModal);
+  document.getElementById('modal-confirm').addEventListener('click', confirmDelete);
+  document.getElementById('modal-delete').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-delete')) closeDeleteModal();
+  });
+
+  document.getElementById('note-title').addEventListener('input', scheduleAutosave);
+  document.getElementById('note-content').addEventListener('input', () => {
+    scheduleAutosave();
+    updateCharCount();
+  });
+  document.getElementById('tag-input').addEventListener('input', scheduleAutosave);
+  document.getElementById('search-input').addEventListener('input', renderList);
+
+  /* ── SWIPE BACK ───────────────────────────────────────────────── */
+  let touchStartX = 0;
+  document.getElementById('screen-editor').addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+  document.getElementById('screen-editor').addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (dx > 80 && touchStartX < 40) goBack();
+  }, { passive: true });
+
+  /* ── KEYBOARD: ENTER on new line auto checkbox ────────────────── */
+  document.getElementById('note-content').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const ta    = e.target;
+    const line  = ta.value.slice(ta.value.lastIndexOf('\n', ta.selectionStart - 1) + 1, ta.selectionStart);
+    const checkbox = line.match(/^(\s*)\[( |x)\] /);
+    const bullet   = line.match(/^(\s*)- /);
+    if (checkbox) {
+      e.preventDefault();
+      const indent = checkbox[1];
+      ta.setRangeText('\n' + indent + '[ ] ', ta.selectionStart, ta.selectionEnd, 'end');
+      scheduleAutosave();
+    } else if (bullet) {
+      if (line.trim() === '-') return;
+      e.preventDefault();
+      const indent = bullet[1];
+      ta.setRangeText('\n' + indent + '- ', ta.selectionStart, ta.selectionEnd, 'end');
+      scheduleAutosave();
+    }
+  });
+
+  /* ── INIT ─────────────────────────────────────────────────────── */
+  renderList();
+
+  /* ══════════════════════════════════════════════════════════════════
+     BOTTOM NAV
+  ══════════════════════════════════════════════════════════════════ */
+  let activeTab = 'notes';
+
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      if (target === activeTab) return;
+      activeTab = target;
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === target));
+      // hide editor if switching tab
+      if (target === 'notes') {
+        showScreen('screen-list');
+        document.getElementById('bottom-nav').style.display = 'flex';
+      } else if (target === 'finance') {
+        showScreen('screen-finance');
+        document.getElementById('bottom-nav').style.display = 'flex';
+        renderFinanceList();
+      }
+    });
+  });
+
+  // hide nav in editor/finance-form
+  const origShowScreen = showScreen;
+  // patch: hide nav when editor is shown
+  document.getElementById('btn-new').addEventListener('click', () => {
+    document.getElementById('bottom-nav').style.display = 'none';
+  });
+  document.getElementById('btn-back').addEventListener('click', () => {
+    document.getElementById('bottom-nav').style.display = 'flex';
+  });
+
+  /* ══════════════════════════════════════════════════════════════════
+     FINANCE: STORAGE
+  ══════════════════════════════════════════════════════════════════ */
+  const FIN_KEY = 'zapiski_fin_v1';
+
+  function loadExpenses() {
+    try { return JSON.parse(localStorage.getItem(FIN_KEY)) || []; }
+    catch { return []; }
+  }
+  function saveExpenses(arr) {
+    localStorage.setItem(FIN_KEY, JSON.stringify(arr));
+  }
+
+  let expenses = loadExpenses();
+  let finMonth = new Date(); // displayed month
+  finMonth.setDate(1);
+  let finFilter = 'all';
+  let editingExpId = null;
+  let deleteExpId  = null;
+
+  /* ── CATEGORIES ─────────────────────────────────────────────────── */
+  const CAT_ICONS = {
+    moradia: '🏠', alimentacao: '🍔', transporte: '🚗',
+    saude: '💊', educacao: '📚', lazer: '🎮',
+    assinatura: '📡', cartao: '💳', investimento: '📈',
+    pet: '🐾', vestuario: '👕', outros: '🏷️'
+  };
+  const CAT_LABELS = {
+    moradia: 'Moradia', alimentacao: 'Alimentação', transporte: 'Transporte',
+    saude: 'Saúde', educacao: 'Educação', lazer: 'Lazer',
+    assinatura: 'Assinatura', cartao: 'Cartão', investimento: 'Invest.',
+    pet: 'Pet', vestuario: 'Roupas', outros: 'Outros'
+  };
+
+  function catIcon(cat) { return CAT_ICONS[cat] || '🏷️'; }
+
+  /* ── STATUS auto-detect ─────────────────────────────────────────── */
+  function resolveStatus(exp) {
+    if (exp.status === 'paid') return 'paid';
+    if (!exp.due) return exp.status || 'pending';
+    // if due date passed and not paid → late
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due   = new Date(exp.due + 'T00:00:00');
+    if (due < today && exp.status !== 'paid') return 'late';
+    return exp.status || 'pending';
+  }
+
+  /* ── FORMAT CURRENCY ────────────────────────────────────────────── */
+  function fmtBRL(val) {
+    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  /* ── FORMAT DATE ────────────────────────────────────────────────── */
+  function fmtDue(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return d + '/' + m + '/' + y;
+  }
+
+  /* ── MONTH helpers ──────────────────────────────────────────────── */
+  function monthKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function monthLabel(d) {
+    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      .replace(/^./, c => c.toUpperCase());
+  }
+
+  /* ── FILTER expenses for visible month ─────────────────────────── */
+  function visibleExpenses() {
+    const mk = monthKey(finMonth);
+    return expenses.filter(e => {
+      if (!e.due) return false;
+      return e.due.slice(0, 7) === mk;
+    });
+  }
+
+  /* ── RENDER FINANCE LIST ────────────────────────────────────────── */
+  function renderFinanceList() {
+    document.getElementById('fin-month-label').textContent = monthLabel(finMonth);
+
+    let list = visibleExpenses();
+    // apply status filter
+    if (finFilter !== 'all') {
+      list = list.filter(e => resolveStatus(e) === finFilter);
+    }
+    // sort by due date asc
+    list = list.slice().sort((a, b) => (a.due || '').localeCompare(b.due || ''));
+
+    // summary (all of the month, regardless of filter)
+    const all = visibleExpenses();
+    const totalVal  = all.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    const paidVal   = all.filter(e => resolveStatus(e) === 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    const openVal   = all.filter(e => resolveStatus(e) !== 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+
+    document.getElementById('fin-total').textContent = fmtBRL(totalVal);
+    document.getElementById('fin-paid').textContent  = fmtBRL(paidVal);
+    document.getElementById('fin-open').textContent  = fmtBRL(openVal);
+
+    const container = document.getElementById('fin-list');
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="emoji">💸</span>
+          <p>Nenhuma despesa ${ finFilter !== 'all' ? 'com esse filtro ' : '' }neste mês.<br>Toque em <strong>＋</strong> para adicionar.</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = list.map(e => {
+      const st    = resolveStatus(e);
+      const amtCls = st === 'paid' ? 'paid-amt' : (st === 'late' ? 'late-amt' : '');
+      const badgeCls = 'badge-' + st;
+      const badgeTxt = st === 'paid' ? '✅ Pago' : (st === 'late' ? '🔴 Atrasado' : '⏳ Pendente');
+      const parcTxt  = e.installment ? ` · ${e.parcCurrent}/${e.parcTotal}x` : '';
+      const recurTxt = e.repeat ? ` · ${freqLabel(e.freq)}` : '';
+      const toggleTxt = st === 'paid' ? 'Desmarcar' : 'Pagar';
+      return `
+        <div class="exp-card status-${st}" data-id="${e.id}">
+          <div class="exp-row1">
+            <span class="exp-cat-icon">${catIcon(e.cat)}</span>
+            <div class="exp-info">
+              <div class="exp-name">${escHtml(e.name)}</div>
+              ${e.desc ? `<div class="exp-desc">${escHtml(e.desc)}</div>` : ''}
+            </div>
+            <span class="exp-amount ${amtCls}">${fmtBRL(parseFloat(e.amount)||0)}</span>
+          </div>
+          <div class="exp-row2">
+            <span class="exp-badge ${badgeCls}">${badgeTxt}</span>
+            ${e.due ? `<span class="exp-due">📅 ${fmtDue(e.due)}</span>` : ''}
+            ${parcTxt ? `<span class="exp-parc">💳${parcTxt}</span>` : ''}
+            ${recurTxt ? `<span class="exp-recur">🔁${recurTxt}</span>` : ''}
+            <button class="exp-toggle-paid" data-id="${e.id}">${toggleTxt}</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    // card click → edit
+    container.querySelectorAll('.exp-card').forEach(card => {
+      card.addEventListener('click', e => {
+        if (e.target.classList.contains('exp-toggle-paid')) return;
+        openExpenseForm(card.dataset.id);
+      });
+    });
+    // quick toggle paid
+    container.querySelectorAll('.exp-toggle-paid').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const exp = expenses.find(e => e.id === btn.dataset.id);
+        if (!exp) return;
+        exp.status = (resolveStatus(exp) === 'paid') ? 'pending' : 'paid';
+        saveExpenses(expenses);
+        renderFinanceList();
+        showToast(exp.status === 'paid' ? '✅ Marcado como pago' : 'Marcado como pendente');
+      });
+    });
+  }
+
+  function freqLabel(f) {
+    return { monthly: 'Mensal', weekly: 'Semanal', biweekly: 'Quinzenal', yearly: 'Anual' }[f] || f;
+  }
+
+  /* ── MONTH NAV ──────────────────────────────────────────────────── */
+  document.getElementById('fin-month-prev').addEventListener('click', () => {
+    finMonth.setMonth(finMonth.getMonth() - 1);
+    renderFinanceList();
+  });
+  document.getElementById('fin-month-next').addEventListener('click', () => {
+    finMonth.setMonth(finMonth.getMonth() + 1);
+    renderFinanceList();
+  });
+
+  /* ── FILTER CHIPS ───────────────────────────────────────────────── */
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      finFilter = chip.dataset.filter;
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === finFilter));
+      renderFinanceList();
+    });
+  });
+
+  /* ── OPEN EXPENSE FORM ──────────────────────────────────────────── */
+  let selectedCat    = 'outros';
+  let selectedStatus = 'pending';
+
+  function openExpenseForm(id) {
+    editingExpId = id || null;
+    const exp = id ? expenses.find(e => e.id === id) : null;
+
+    document.getElementById('exp-form-title').textContent = exp ? 'Editar Despesa' : 'Nova Despesa';
+    document.getElementById('ef-name').value      = exp ? exp.name    : '';
+    document.getElementById('ef-amount').value    = exp ? exp.amount  : '';
+    document.getElementById('ef-due').value       = exp ? (exp.due || '') : todayIso();
+    document.getElementById('ef-desc').value      = exp ? (exp.desc || '') : '';
+    document.getElementById('ef-installment').checked = exp ? !!exp.installment : false;
+    document.getElementById('ef-parc-total').value   = exp ? (exp.parcTotal   || '') : '';
+    document.getElementById('ef-parc-current').value = exp ? (exp.parcCurrent || '') : '';
+    document.getElementById('ef-repeat').checked  = exp ? !!exp.repeat : false;
+    document.getElementById('ef-freq').value      = exp ? (exp.freq || 'monthly') : 'monthly';
+
+    // category
+    selectedCat = exp ? (exp.cat || 'outros') : 'outros';
+    document.querySelectorAll('.cat-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.cat === selectedCat);
+    });
+
+    // status
+    selectedStatus = exp ? (exp.status || 'pending') : 'pending';
+    syncStatusBtns();
+
+    // installment fields
+    document.getElementById('parc-fields').classList.toggle('visible', !!document.getElementById('ef-installment').checked);
+    document.getElementById('repeat-fields').classList.toggle('visible', !!document.getElementById('ef-repeat').checked);
+
+    // delete btn
+    document.getElementById('ef-delete').style.display = exp ? 'flex' : 'none';
+
+    document.getElementById('modal-expense').classList.add('open');
+    setTimeout(() => document.getElementById('ef-name').focus(), 200);
+  }
+
+  function todayIso() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function closeExpenseForm() {
+    document.getElementById('modal-expense').classList.remove('open');
+    editingExpId = null;
+  }
+
+  function syncStatusBtns() {
+    document.querySelectorAll('.status-opt').forEach(b => {
+      b.className = 'status-opt';
+      if (b.dataset.status === selectedStatus) b.classList.add('sel-' + selectedStatus);
+    });
+  }
+
+  /* ── CATEGORY SELECTION ─────────────────────────────────────────── */
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedCat = btn.dataset.cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('selected', b.dataset.cat === selectedCat));
+    });
+  });
+
+  /* ── STATUS SELECTION ───────────────────────────────────────────── */
+  document.querySelectorAll('.status-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedStatus = btn.dataset.status;
+      syncStatusBtns();
+    });
+  });
+
+  /* ── INSTALLMENT / REPEAT TOGGLES ──────────────────────────────── */
+  document.getElementById('ef-installment').addEventListener('change', e => {
+    document.getElementById('parc-fields').classList.toggle('visible', e.target.checked);
+  });
+  document.getElementById('ef-repeat').addEventListener('change', e => {
+    document.getElementById('repeat-fields').classList.toggle('visible', e.target.checked);
+  });
+
+  /* ── SAVE EXPENSE ───────────────────────────────────────────────── */
+  document.getElementById('ef-save').addEventListener('click', () => {
+    const name   = document.getElementById('ef-name').value.trim();
+    const amount = document.getElementById('ef-amount').value;
+    const due    = document.getElementById('ef-due').value;
+
+    if (!name)   { shakeInput('ef-name');   showToast('⚠️ Informe o nome da despesa'); return; }
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
+                 { shakeInput('ef-amount'); showToast('⚠️ Informe um valor válido'); return; }
+    if (!due)    { shakeInput('ef-due');    showToast('⚠️ Informe a data de vencimento'); return; }
+
+    const isInstallment = document.getElementById('ef-installment').checked;
+    const isRepeat      = document.getElementById('ef-repeat').checked;
+
+    const expData = {
+      name,
+      amount:      parseFloat(amount).toFixed(2),
+      due,
+      desc:        document.getElementById('ef-desc').value.trim(),
+      cat:         selectedCat,
+      status:      selectedStatus,
+      installment: isInstallment,
+      parcTotal:   isInstallment ? (parseInt(document.getElementById('ef-parc-total').value) || null) : null,
+      parcCurrent: isInstallment ? (parseInt(document.getElementById('ef-parc-current').value) || null) : null,
+      repeat:      isRepeat,
+      freq:        isRepeat ? document.getElementById('ef-freq').value : null,
+      updatedAt:   Date.now()
+    };
+
+    if (editingExpId) {
+      const idx = expenses.findIndex(e => e.id === editingExpId);
+      if (idx !== -1) {
+        expenses[idx] = { ...expenses[idx], ...expData };
+      }
+      showToast('Despesa atualizada');
+    } else {
+      expenses.unshift({ id: uid(), createdAt: Date.now(), ...expData });
+      showToast('Despesa adicionada');
+    }
+
+    saveExpenses(expenses);
+    closeExpenseForm();
+    renderFinanceList();
+  });
+
+  /* ── DELETE EXPENSE ─────────────────────────────────────────────── */
+  document.getElementById('ef-delete').addEventListener('click', () => {
+    deleteExpId = editingExpId;
+    closeExpenseForm();
+    document.getElementById('modal-del-expense').classList.add('open');
+  });
+  document.getElementById('del-exp-cancel').addEventListener('click', () => {
+    document.getElementById('modal-del-expense').classList.remove('open');
+    deleteExpId = null;
+  });
+  document.getElementById('del-exp-confirm').addEventListener('click', () => {
+    expenses = expenses.filter(e => e.id !== deleteExpId);
+    saveExpenses(expenses);
+    document.getElementById('modal-del-expense').classList.remove('open');
+    deleteExpId = null;
+    renderFinanceList();
+    showToast('Despesa excluída');
+  });
+
+  document.getElementById('btn-new-expense').addEventListener('click', () => openExpenseForm(null));
+  document.getElementById('exp-form-close').addEventListener('click', closeExpenseForm);
+  document.getElementById('modal-expense').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-expense')) closeExpenseForm();
+  });
+  document.getElementById('modal-del-expense').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-del-expense')) {
+      document.getElementById('modal-del-expense').classList.remove('open');
+      deleteExpId = null;
+    }
+  });
+
+  /* ── SHAKE HELPER ───────────────────────────────────────────────── */
+  function shakeInput(id) {
+    const el = document.getElementById(id);
+    el.style.borderColor = 'var(--danger)';
+    el.style.animation = 'shake .3s ease';
+    setTimeout(() => { el.style.animation = ''; el.style.borderColor = ''; }, 600);
+  }
+
+  /* add shake keyframes */
+  const shakeStyle = document.createElement('style');
+  shakeStyle.textContent = '@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }';
+  document.head.appendChild(shakeStyle);
+
+
+</script>
+</body>
+</html>
