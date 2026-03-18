@@ -357,6 +357,29 @@
     }
     .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+    /* sort bar */
+    .sort-bar {
+      display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+      overflow-x: auto; flex-shrink: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .sort-bar::-webkit-scrollbar { height: 0; }
+    .sort-bar-label {
+      font-size: .7rem; color: var(--muted); white-space: nowrap;
+      text-transform: uppercase; letter-spacing: .6px; flex-shrink: 0;
+    }
+    .sort-chip {
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 12px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card); color: var(--muted);
+      font-size: .78rem; cursor: pointer; white-space: nowrap;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .sort-chip.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+    .sort-chip i { font-size: .8rem; }
+
     /* month nav */
     .month-nav {
       display: flex; align-items: center; justify-content: space-between;
@@ -636,6 +659,14 @@
     <button class="filter-chip" data-filter="pending"><i class="bi bi-clock"></i> Abertas</button>
     <button class="filter-chip" data-filter="late"><i class="bi bi-exclamation-circle-fill"></i> Atrasadas</button>
     <button class="filter-chip" data-filter="paid"><i class="bi bi-check-circle-fill"></i> Pagas</button>
+  </div>
+
+  <div class="sort-bar">
+    <span class="sort-bar-label"><i class="bi bi-funnel"></i> Ordenar:</span>
+    <button class="sort-chip active" data-sort="date-asc"><i class="bi bi-calendar3"></i> Data</button>
+    <button class="sort-chip" data-sort="value-desc"><i class="bi bi-sort-numeric-down-alt"></i> Maior valor</button>
+    <button class="sort-chip" data-sort="value-asc"><i class="bi bi-sort-numeric-down"></i> Menor valor</button>
+    <button class="sort-chip" data-sort="name-asc"><i class="bi bi-sort-alpha-down"></i> Nome</button>
   </div>
 
   <div class="fin-list" id="fin-list"></div>
@@ -1146,6 +1177,7 @@
   let finMonth = new Date(); // displayed month
   finMonth.setDate(1);
   let finFilter = 'all';
+  let finSort    = 'date-asc';
   let editingExpId = null;
   let deleteExpId  = null;
 
@@ -1223,8 +1255,14 @@
     if (finFilter !== 'all') {
       list = list.filter(e => resolveStatus(e) === finFilter);
     }
-    // sort by due date asc
-    list = list.slice().sort((a, b) => (a.due || '').localeCompare(b.due || ''));
+    // sort by selected criterion
+    list = list.slice().sort((a, b) => {
+      if (finSort === 'value-desc') return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
+      if (finSort === 'value-asc')  return (parseFloat(a.amount)||0) - (parseFloat(b.amount)||0);
+      if (finSort === 'name-asc')   return (a.name||'').localeCompare(b.name||'', 'pt-BR', {sensitivity:'base'});
+      // default: date-asc
+      return (a.due || '').localeCompare(b.due || '');
+    });
 
     // summary (all of the month, regardless of filter)
     const all = visibleExpenses();
@@ -1313,6 +1351,15 @@
     chip.addEventListener('click', () => {
       finFilter = chip.dataset.filter;
       document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === finFilter));
+      renderFinanceList();
+    });
+  });
+
+  /* ── SORT CHIPS ─────────────────────────────────────────────────── */
+  document.querySelectorAll('.sort-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      finSort = chip.dataset.sort;
+      document.querySelectorAll('.sort-chip').forEach(c => c.classList.toggle('active', c.dataset.sort === finSort));
       renderFinanceList();
     });
   });
