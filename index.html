@@ -14,7 +14,7 @@
       --bg:        #0f0f1a;
       --surface:   #1a1a2e;
       --card:      #16213e;
-      --accent:    #7c3aed;
+      --accent:    #3a5bed;
       --accent2:   #5568f7;
       --text:      #e2e8f0;
       --muted:     #94a3b8;
@@ -83,13 +83,23 @@
       }
 
     /* ── NOTES LIST ──────────────────────────────────────── */
-    .notes-list { flex: 1; overflow-y: auto; padding: 12px 16px 80px; }
+    .notes-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px 80px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+      align-content: start;
+    }
     .notes-list::-webkit-scrollbar { width: 0; }
 
     .empty-state {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 12px;
       height: 100%; color: var(--muted); text-align: center; padding: 32px;
+      grid-column: 1 / -1;
+      min-height: 45vh;
     }
     .empty-state .empty-icon { font-size: 3rem; color: var(--muted); }
     .empty-state p { font-size: .95rem; line-height: 1.5; }
@@ -100,12 +110,12 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
-      margin-bottom: 10px;
       cursor: pointer;
       transition: border-color .2s, transform .15s;
       position: relative;
       overflow: hidden;
       animation: fadeIn .25s ease;
+      min-height: 128px;
     }
     @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
     .note-card::before {
@@ -116,12 +126,65 @@
       border-radius: 3px 0 0 3px;
     }
     .note-card:active { transform: scale(.98); border-color: var(--accent); }
+    .note-card.reordering {
+      border-color: var(--accent2);
+      box-shadow: 0 8px 20px rgba(0,0,0,.35);
+      opacity: .92;
+    }
+    .note-card.holding {
+      border-color: var(--accent2);
+      box-shadow: 0 6px 16px rgba(0,0,0,.28);
+      transform: scale(1.015);
+    }
+    .notes-list.reorder-mode .note-card {
+      transition: transform .12s ease, border-color .12s ease;
+      user-select: none;
+    }
     .note-card.pinned::before { background: #f59e0b; }
 
     .note-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
     .note-title { font-size: 1rem; font-weight: 600; line-height: 1.3; flex: 1; word-break: break-word; }
+    .note-card-actions { display: inline-flex; align-items: center; gap: 4px; position: relative; flex-shrink: 0; }
     .pin-icon { font-size: .9rem; opacity: .7; flex-shrink: 0; }
-    .note-preview { font-size: .85rem; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .note-menu-btn {
+      width: 28px; height: 28px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--muted); font-size: .95rem;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    .note-menu-btn:active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .note-menu {
+      position: absolute;
+      top: 32px;
+      right: 0;
+      min-width: 144px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 6px;
+      display: none;
+      z-index: 12;
+    }
+    .note-menu.open { display: block; }
+    .note-menu-item {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: .82rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .note-menu-item:active { background: var(--card); }
+    .note-menu-item.danger { color: var(--danger); }
+    .note-preview { font-size: .85rem; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .note-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
     .note-date { font-size: .75rem; color: var(--muted); flex: 1; }
     .note-tag {
@@ -199,14 +262,127 @@
 
     #note-content {
       flex: 1; width: 100%;
-      border: none; outline: none; resize: none;
+      border: none; outline: none;
       background: transparent; color: var(--text);
       font-size: 1rem; line-height: 1.75;
       padding: 12px 20px 100px;
       font-family: inherit;
       min-height: 300px;
+      white-space: pre-wrap;
     }
-    #note-content::placeholder { color: var(--border); }
+    #note-content:empty::before {
+      content: attr(data-placeholder);
+      color: var(--border);
+      pointer-events: none;
+    }
+    #note-content h1 { font-size: 1.35rem; line-height: 1.3; margin: 8px 0; }
+    #note-content h2 { font-size: 1.15rem; line-height: 1.35; margin: 8px 0; }
+    #note-content p { margin: 6px 0; }
+    #note-content blockquote {
+      margin: 8px 0;
+      padding-left: 10px;
+      border-left: 3px solid var(--accent2);
+      color: var(--muted);
+    }
+    #note-content ul { margin: 6px 0 6px 18px; }
+    #note-content hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 6px 0;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255,255,255,.01);
+      cursor: grab;
+    }
+    .task-item:active { cursor: grabbing; }
+    .task-item.dragging { opacity: .6; border-style: dashed; }
+    .task-check {
+      width: 20px;
+      height: 20px;
+      margin-top: 4px;
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1.5px solid var(--accent2);
+      border-radius: 6px;
+      background: rgba(255,255,255,.02);
+      position: relative;
+      transition: all .16s ease;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .task-check:hover { border-color: var(--accent); }
+    .task-check:checked {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color: transparent;
+      box-shadow: 0 0 0 2px rgba(85,104,247,.16);
+    }
+    .task-check:checked::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 10px;
+      border: solid #fff;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .task-text {
+      flex: 1;
+      min-height: 24px;
+      outline: none;
+      word-break: break-word;
+    }
+    .task-item.checked .task-text {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+    .task-tools {
+      display: inline-flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .task-mini {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-size: .75rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .task-mini:active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .task-add-bottom-wrap {
+      margin: 8px 0;
+      display: flex;
+      justify-content: center;
+    }
+    .task-add-bottom {
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 12px;
+      border-radius: 10px;
+      font-size: .82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .task-add-bottom:active {
+      background: var(--card);
+      border-color: var(--accent2);
+      color: var(--text);
+    }
 
     .editor-footer {
       padding: 8px 20px 16px;
@@ -310,6 +486,7 @@
     }
 
     /* ── push content above nav on list/finance screens ── */
+    #screen-tasks  .daily-body  { padding-bottom: 90px; }
     #screen-list   .notes-list  { padding-bottom: 90px; }
     #screen-finance .fin-list   { padding-bottom: 90px; }
 
@@ -339,6 +516,24 @@
     .fin-sum-card.paid   .sum-val { color: var(--safe); }
     .fin-sum-card.open   .sum-val { color: #f59e0b; }
     .fin-sum-card.late   .sum-val { color: var(--danger); }
+
+    /* fin sub-tabs */
+    .fin-tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .fin-tab {
+      flex: 1; padding: 11px 8px; border: none;
+      background: transparent; color: var(--muted);
+      font-size: .88rem; font-weight: 500; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .fin-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+    .fin-tab i { font-size: 1rem; }
 
     /* filter bar */
     .fin-filters {
@@ -401,6 +596,43 @@
     /* list */
     .fin-list { flex: 1; overflow-y: auto; padding: 12px 16px; }
     .fin-list::-webkit-scrollbar { width: 0; }
+
+    /* dashboard */
+    .fin-dashboard { flex: 1; overflow-y: auto; padding: 12px 16px 90px; }
+    .fin-dashboard::-webkit-scrollbar { width: 0; }
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .dash-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .dash-card-label {
+      font-size: .72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .dash-card-val {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .dash-card-val.safe { color: var(--safe); }
+    .dash-card-val.warn { color: #f59e0b; }
+    .dash-card-val.danger { color: var(--danger); }
+    .dash-note {
+      margin-top: 10px;
+      font-size: .78rem;
+      color: var(--muted);
+      text-align: center;
+    }
 
     /* expense card */
     .exp-card {
@@ -495,6 +727,8 @@
     .form-textarea { resize: none; height: 72px; line-height: 1.5; }
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row.name-amount { grid-template-columns: 1.35fr 1fr; }
+    .form-row.single-col { grid-template-columns: 1fr; }
 
     .cat-grid {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
@@ -553,13 +787,281 @@
     .status-opt.sel-paid    { background: rgba(34,197,94,.18);  border-color: rgba(34,197,94,.5);  color: var(--safe); }
     .status-opt.sel-pending { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.5); color: #f59e0b; }
     .status-opt.sel-late    { background: rgba(239,68,68,.18);  border-color: rgba(239,68,68,.5);  color: var(--danger); }
+
+    #screen-tasks { background: var(--bg); }
+    .daily-form {
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .daily-form-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 112px;
+      gap: 8px;
+    }
+    .daily-form-row-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .daily-form-row > *,
+    .daily-form-row-3 > * { min-width: 0; }
+    .daily-input,
+    .daily-select {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: .92rem;
+      outline: none;
+    }
+    .daily-select {
+      width: 100%;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .daily-input:focus,
+    .daily-select:focus { border-color: var(--accent); }
+    .daily-add-btn {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: .88rem;
+      line-height: 1.2;
+    }
+
+    @media (max-width: 420px) {
+      .daily-form-row-3 {
+        grid-template-columns: 1fr;
+      }
+      .daily-add-btn {
+        min-height: 42px;
+      }
+    }
+    .daily-stats {
+      display: flex;
+      gap: 12px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: .78rem;
+      flex-shrink: 0;
+    }
+    .daily-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .daily-tabs {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+    }
+    .daily-tabs::-webkit-scrollbar { height: 0; }
+    .daily-tab {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: .78rem;
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .daily-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    @media (max-width: 560px) {
+      .daily-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+    .daily-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+    }
+    .daily-body::-webkit-scrollbar { width: 0; }
+ 
+    .daily-group-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: .74rem;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+      padding: 0 2px;
+    }
+    .daily-task-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255,255,255,.01);
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+    .daily-task-row:last-child { margin-bottom: 0; }
+    .daily-task-check {
+      width: 20px;
+      height: 20px;
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1.5px solid var(--accent2);
+      border-radius: 6px;
+      background: rgba(255,255,255,.02);
+      position: relative;
+      transition: all .16s ease;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .daily-task-check:hover { border-color: var(--accent); }
+    .daily-task-check:checked {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color: transparent;
+      box-shadow: 0 0 0 2px rgba(85,104,247,.16);
+    }
+    .daily-task-check:checked::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 10px;
+      border: solid #fff;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .daily-task-text {
+      flex: 1;
+      font-size: .9rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .daily-task-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .daily-badge {
+      font-size: .68rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255,255,255,.03);
+      white-space: nowrap;
+    }
+    .daily-badge.priority-alta {
+      color: #fca5a5;
+      border-color: rgba(239,68,68,.45);
+      background: rgba(239,68,68,.15);
+    }
+    .daily-badge.priority-media {
+      color: #fde68a;
+      border-color: rgba(245,158,11,.5);
+      background: rgba(245,158,11,.15);
+    }
+    .daily-badge.priority-baixa {
+      color: #86efac;
+      border-color: rgba(34,197,94,.45);
+      background: rgba(34,197,94,.12);
+    }
+    .daily-task-row.done .daily-task-text {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+    .daily-task-remove {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--danger);
+      font-size: .86rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .daily-task-remove:active { background: rgba(239,68,68,.12); }
+    .daily-empty {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 14px 10px;
+      font-size: .84rem;
+    }
+
+    #modal-daily-task .modal {
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    #modal-daily-task .modal::-webkit-scrollbar { width: 0; }
+    .daily-modal-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .daily-modal-title h3 { font-size: 1.05rem; }
+    .daily-modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════ BOTTOM NAV ═══════════════════════════ -->
 <nav class="bottom-nav" id="bottom-nav">
-  <button class="nav-tab active" data-tab="notes">
+  <button class="nav-tab active" data-tab="tasks">
+    <i class="bi bi-check2-square nav-icon"></i>
+    <span>Tarefas</span>
+  </button>
+  <button class="nav-tab" data-tab="notes">
     <i class="bi bi-journal-text nav-icon"></i>
     <span>Notas</span>
   </button>
@@ -569,8 +1071,70 @@
   </button>
 </nav>
 
+<div class="screen" id="screen-tasks">
+  <div class="topbar">
+    <h1>Zapis<span>ki</span></h1>
+    <button class="icon-btn" id="btn-open-daily-modal" title="Nova tarefa"><i class="bi bi-plus-lg"></i></button>
+  </div>
+
+  <div class="search-wrap">
+    <i class="bi bi-search search-icon-el"></i>
+    <input type="search" id="daily-search-input" placeholder="Pesquisar tarefas diárias..." autocomplete="off" />
+  </div>
+
+  <div class="daily-controls">
+    <div class="daily-tabs">
+      <button class="daily-tab active" data-daily-tab="all">Todas</button>
+      <button class="daily-tab" data-daily-tab="fixed">Fixas</button>
+      <button class="daily-tab" data-daily-tab="flex">Não fixas</button>
+    </div>
+  </div>
+
+  <div class="daily-stats">
+    <span><strong id="daily-total">0</strong> total</span>
+    <span><strong id="daily-fixed">0</strong> fixas</span>
+    <span><strong id="daily-flex">0</strong> não fixas</span>
+  </div>
+
+  <div class="daily-body">
+    <div class="daily-group">
+      <div class="daily-group-title"><span>Tarefas do dia</span><strong id="daily-visible">0</strong></div>
+      <div id="daily-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-daily-task">
+  <div class="modal">
+    <div class="daily-modal-title">
+      <h3>Nova tarefa diária</h3>
+      <button class="daily-modal-close" id="btn-close-daily-modal"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="daily-form">
+    
+      <div class="daily-form-row">
+        <input type="text" id="daily-task-input" class="daily-input" placeholder="Nova tarefa diária" maxlength="120" />
+        <input type="time" id="daily-task-time" class="daily-input" />
+      </div>
+      <div class="daily-form-row-3">
+        <select id="daily-task-type" class="daily-select">
+          <option value="fixed">Fixa</option>
+          <option value="flex">Não fixa</option>
+        </select>
+        <select id="daily-task-priority" class="daily-select">
+          <option value="alta">Prioridade alta</option>
+          <option value="media" selected>Prioridade média</option>
+          <option value="baixa">Prioridade baixa</option>
+        </select>
+        <button id="daily-add-btn" class="daily-add-btn" type="button"><i class="bi bi-plus-lg"></i> Adicionar tarefa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ LIST SCREEN ═══════════════════════════ -->
-<div class="screen" id="screen-list">
+<div class="screen hidden" id="screen-list">
   <div class="topbar">
     <h1>Zapis<span>ki</span></h1>
     <button class="icon-btn" id="btn-sort" title="Ordenar"><i class="bi bi-arrow-down-up"></i></button>
@@ -605,18 +1169,18 @@
   <input type="text" id="note-title" class="editor-title" placeholder="Título…" maxlength="120" />
 
   <div class="editor-toolbar">
-    <button class="tool-btn" data-wrap="**" data-wrap-end="**">B</button>
-    <button class="tool-btn" data-wrap="_" data-wrap-end="_"><em>I</em></button>
-      <button class="tool-btn" data-prefix="- "><i class="bi bi-list-ul"></i> Lista</button>
-      <button class="tool-btn" data-prefix="[ ] "><i class="bi bi-check2-square"></i> Tarefa</button>
-    <button class="tool-btn" data-prefix="# ">H1</button>
-    <button class="tool-btn" data-prefix="## ">H2</button>
-      <button class="tool-btn" data-prefix="> "><i class="bi bi-chat-square-quote"></i> Citar</button>
-      <button class="tool-btn" data-separator="---"><i class="bi bi-dash-lg"></i> Linha</button>
+    <button class="tool-btn" data-action="bold">B</button>
+    <button class="tool-btn" data-action="italic"><em>I</em></button>
+    <button class="tool-btn" data-action="list"><i class="bi bi-list-ul"></i> Lista</button>
+    <button class="tool-btn" data-action="task"><i class="bi bi-check2-square"></i> Tarefa</button>
+    <button class="tool-btn" data-action="h1">H1</button>
+    <button class="tool-btn" data-action="h2">H2</button>
+    <button class="tool-btn" data-action="quote"><i class="bi bi-chat-square-quote"></i> Citar</button>
+    <button class="tool-btn" data-action="hr"><i class="bi bi-dash-lg"></i> Linha</button>
   </div>
 
   <div class="editor-body">
-    <textarea id="note-content" placeholder="Escreva sua nota…" spellcheck="true"></textarea>
+    <div id="note-content" contenteditable="true" data-placeholder="Escreva sua nota…" spellcheck="true"></div>
   </div>
 
   <div class="editor-footer">
@@ -629,21 +1193,28 @@
 
 <!-- ═══════════════════════════ FINANCE SCREEN ═══════════════════════════ -->
 <div class="screen hidden" id="screen-finance">
-  <div class="topbar">
-    <h1><i class="bi bi-wallet2"></i> Finan<span>ças</span></h1>
+  <div class="topbar"> 
+    <h1>Zapis<span>ki</span></h1>
+  </div>
+
+  <!-- sub-tabs -->
+  <div class="fin-tabs">
+    <button class="fin-tab" data-fin-tab="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</button>
+    <button class="fin-tab active" data-fin-tab="fixed"><i class="bi bi-pin-fill"></i> Despesas Fixas</button>
+    <button class="fin-tab" data-fin-tab="flow"><i class="bi bi-arrow-down-up"></i> Entradas/Saídas</button>
   </div>
 
   <div class="fin-summary">
     <div class="fin-sum-card total">
-      <span class="sum-label">Total</span>
+      <span class="sum-label" id="fin-total-label">Total</span>
       <span class="sum-val" id="fin-total">R$0</span>
     </div>
     <div class="fin-sum-card paid">
-      <span class="sum-label">Pago</span>
+      <span class="sum-label" id="fin-paid-label">Pago</span>
       <span class="sum-val" id="fin-paid">R$0</span>
     </div>
-    <div class="fin-sum-card open">
-      <span class="sum-label">Aberto</span>
+    <div class="fin-sum-card open" id="fin-sum-open">
+      <span class="sum-label" id="fin-open-label">Aberto</span>
       <span class="sum-val" id="fin-open">R$0</span>
     </div>
   </div>
@@ -654,11 +1225,17 @@
     <button class="month-arrow" id="fin-month-next"><i class="bi bi-chevron-right"></i></button>
   </div>
 
-  <div class="fin-filters">
+  <div class="fin-filters" id="fin-status-filters">
     <button class="filter-chip active" data-filter="all">Todas</button>
-    <button class="filter-chip" data-filter="pending"><i class="bi bi-clock"></i> Abertas</button>
-    <button class="filter-chip" data-filter="late"><i class="bi bi-exclamation-circle-fill"></i> Atrasadas</button>
+    <button class="filter-chip" data-filter="pending" id="fc-pending"><i class="bi bi-clock"></i> Abertas</button>
+    <button class="filter-chip" data-filter="late" id="fc-late"><i class="bi bi-exclamation-circle-fill"></i> Atrasadas</button>
     <button class="filter-chip" data-filter="paid"><i class="bi bi-check-circle-fill"></i> Pagas</button>
+  </div>
+
+  <div class="fin-filters" id="fin-flow-filters" style="display:none;">
+    <button class="filter-chip active" data-flow-filter="all">Todos</button>
+    <button class="filter-chip" data-flow-filter="entrada"><i class="bi bi-arrow-down-circle"></i> Entradas</button>
+    <button class="filter-chip" data-flow-filter="saida"><i class="bi bi-arrow-up-circle"></i> Saída</button>
   </div>
 
   <div class="sort-bar">
@@ -669,6 +1246,7 @@
     <button class="sort-chip" data-sort="name-asc"><i class="bi bi-sort-alpha-down"></i> Nome</button>
   </div>
 
+  <div class="fin-dashboard" id="fin-dashboard" style="display:none;"></div>
   <div class="fin-list" id="fin-list"></div>
 
   <button class="fab" id="btn-new-expense" style="margin-bottom:50px;"> <i class="bi bi-plus-lg"></i></button>
@@ -690,10 +1268,26 @@
 <div class="modal-overlay" id="modal-del-expense">
   <div class="modal">
     <h3>Excluir despesa?</h3>
-    <p>A despesa será removida permanentemente do seu controle financeiro.</p>
-    <div class="modal-actions">
-      <button class="btn btn-cancel" id="del-exp-cancel">Cancelar</button>
-      <button class="btn btn-danger" id="del-exp-confirm">Excluir</button>
+    <p id="del-exp-msg">A despesa será removida permanentemente do seu controle financeiro.</p>
+    <div class="modal-actions" style="flex-direction:column; gap:8px;">
+      <div style="display:flex; gap:8px; width:100%;">
+        <button class="btn btn-cancel" id="del-exp-cancel" style="flex:1;">Cancelar</button>
+        <button class="btn btn-danger" id="del-exp-confirm" style="flex:1;">Só esta</button>
+      </div>
+      <button class="btn" id="del-exp-confirm-all" style="display:none; width:100%; background:#7c3aed; color:#fff; border:none; padding:13px;">Excluir todo o grupo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ EDIT SCOPE MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="modal-edit-scope">
+  <div class="modal">
+    <h3>Editar despesa</h3>
+    <p>Esta despesa faz parte de um grupo. O que deseja editar?</p>
+    <div class="modal-actions" style="flex-direction:column; gap:8px;">
+      <button class="btn btn-primary" id="edit-scope-one" style="width:100%;">Só esta</button>
+      <button class="btn" id="edit-scope-forward" style="width:100%; background:#5568f7; color:#fff; border:none;">Esta e as próximas</button>
+      <button class="btn btn-cancel" id="edit-scope-cancel" style="width:100%;">Cancelar</button>
     </div>
   </div>
 </div>
@@ -707,17 +1301,19 @@
     </div>
 
     <!-- NOME + VALOR -->
-    <div class="form-group">
-      <label class="form-label">Nome da despesa *</label>
-      <input type="text" id="ef-name" class="form-input" placeholder="Ex: Aluguel, Netflix, Luz…" maxlength="80" />
-    </div>
-
-    <div class="form-row">
+    <div class="form-row name-amount" id="ef-top-row">
+      <div class="form-group" id="ef-name-group">
+        <label class="form-label" id="ef-name-label">Nome da despesa *</label>
+        <input type="text" id="ef-name" class="form-input" placeholder="Ex: Aluguel, Netflix, Luz…" maxlength="80" />
+      </div>
       <div class="form-group">
         <label class="form-label">Valor (R$) *</label>
         <input type="number" id="ef-amount" class="form-input" placeholder="0,00" min="0" step="0.01" />
       </div>
-      <div class="form-group">
+    </div>
+
+    <div class="form-row single-col" id="ef-due-row">
+      <div class="form-group" id="ef-due-group">
         <label class="form-label">Vencimento *</label>
         <input type="date" id="ef-due" class="form-input" />
       </div>
@@ -749,16 +1345,26 @@
     </div>
 
     <!-- STATUS -->
-    <div class="form-group">
+    <div class="form-group" id="ef-status-section">
       <label class="form-label">Status</label>
       <div class="status-btns">
-        <button class="status-opt sel-pending" data-status="pending"><i class="bi bi-clock-fill"></i> Pendente</button>
+        <button class="status-opt sel-pending" data-status="pending" id="ef-status-pending"><i class="bi bi-clock-fill"></i> Pendente</button>
         <button class="status-opt" data-status="paid"><i class="bi bi-check-circle-fill"></i> Pago</button>
-        <button class="status-opt" data-status="late"><i class="bi bi-exclamation-circle-fill"></i> Atrasado</button>
+        <button class="status-opt" data-status="late" id="ef-status-late"><i class="bi bi-exclamation-circle-fill"></i> Atrasado</button>
+      </div>
+    </div>
+
+    <!-- TIPO (ENTRADAS/SAÍDAS) -->
+    <div class="form-group" id="ef-flow-kind-section" style="display:none;">
+      <label class="form-label">Tipo</label>
+      <div class="status-btns">
+        <button class="status-opt" data-flow-kind="entrada" id="ef-flow-entrada"><i class="bi bi-arrow-down-circle-fill"></i> Entrada</button>
+        <button class="status-opt sel-paid" data-flow-kind="saida" id="ef-flow-saida"><i class="bi bi-arrow-up-circle-fill"></i> Saída</button>
       </div>
     </div>
 
     <!-- PARCELADO -->
+    <div id="parc-section">
     <div class="toggle-row">
       <div>
         <div class="toggle-label">Parcelado</div>
@@ -782,7 +1388,10 @@
       </div>
     </div>
 
+    </div> <!-- /parc-section -->
+
     <!-- REPETIR -->
+    <div id="repeat-section">
     <div class="toggle-row">
       <div>
         <div class="toggle-label">Repetir</div>
@@ -804,6 +1413,8 @@
         </select>
       </div>
     </div>
+
+    </div> <!-- /repeat-section -->
 
     <div style="margin-top:20px; display:flex; gap:10px;">
       <button class="btn btn-danger" id="ef-delete" style="display:none; flex:0 0 auto; padding:13px 18px;"><i class="bi bi-trash3"></i></button>
@@ -828,11 +1439,31 @@
     localStorage.setItem(STORE_KEY, JSON.stringify(notes));
   }
 
+  const DAILY_KEY = 'zapiski_daily_v1';
+
+  function loadDailyTasks() {
+    try { return JSON.parse(localStorage.getItem(DAILY_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveDailyTasks(tasks) {
+    localStorage.setItem(DAILY_KEY, JSON.stringify(tasks));
+  }
+
   /* ── STATE ────────────────────────────────────────────────────── */
   let notes       = loadNotes();
+  let dailyTasks  = loadDailyTasks();
   let currentId   = null;
-  let sortMode    = 'recent';   // 'recent' | 'alpha' | 'oldest'
+  let sortMode    = 'recent';   // 'recent' | 'alpha' | 'oldest' | 'manual'
   let saveTimer   = null;
+  let notePressTimer = null;
+  let notePressCard = null;
+  let notePressStartX = 0;
+  let notePressStartY = 0;
+  let noteDragCard = null;
+  let noteDragPointerId = null;
+  let noteReorderBound = false;
+  let suppressNoteOpenUntil = 0;
 
   /* ── UTILS ────────────────────────────────────────────────────── */
   function uid() {
@@ -854,6 +1485,142 @@
 
   function findNote(id) { return notes.find(n => n.id === id); }
 
+  function stripHtml(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html || '';
+    temp.querySelectorAll('.task-tools').forEach(el => el.remove());
+    temp.querySelectorAll('.task-add-bottom-wrap').forEach(el => el.remove());
+    return (temp.textContent || '').replace(/\u00a0/g, ' ');
+  }
+
+  function normalizeNoteHtml(raw) {
+    if (!raw) return '';
+    if (/<[a-z][\s\S]*>/i.test(raw)) return raw;
+    return escHtml(raw).replace(/\n/g, '<br>');
+  }
+
+  function getEditorEl() {
+    return document.getElementById('note-content');
+  }
+
+  function setEditorHtml(html) {
+    const editor = getEditorEl();
+    editor.innerHTML = html || '';
+    syncTaskVisuals(editor);
+  }
+
+  function getEditorHtml() {
+    const editor = getEditorEl();
+    const clone = editor.cloneNode(true);
+    clone.querySelectorAll('.task-add-bottom-wrap').forEach(el => el.remove());
+    clone.querySelectorAll('.task-check').forEach(cb => {
+      if (cb.checked) cb.setAttribute('checked', '');
+      else cb.removeAttribute('checked');
+    });
+    const html = clone.innerHTML.trim();
+    return html === '<br>' ? '' : html;
+  }
+
+  function syncTaskVisuals(root) {
+    root.querySelectorAll('.task-item').forEach(item => {
+      const cb = item.querySelector('.task-check');
+      item.classList.toggle('checked', !!(cb && cb.checked));
+      item.draggable = true;
+    });
+    ensureTaskAddButton(root);
+  }
+
+  function ensureTaskAddButton(root) {
+    root.querySelectorAll('.task-add-bottom-wrap').forEach(el => el.remove());
+    const tasks = [...root.querySelectorAll('.task-item')];
+    if (!tasks.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'task-add-bottom-wrap';
+    wrap.contentEditable = 'false';
+    wrap.innerHTML = '<button type="button" class="task-add-bottom"><i class="bi bi-plus-lg"></i> Adicionar tarefa</button>';
+    tasks[tasks.length - 1].after(wrap);
+  }
+
+  function createTaskItem(text = '', checked = false) {
+    const item = document.createElement('div');
+    item.className = 'task-item' + (checked ? ' checked' : '');
+    item.draggable = true;
+    item.innerHTML = `
+      <input type="checkbox" class="task-check" ${checked ? 'checked' : ''}>
+      <div class="task-text" contenteditable="true"></div>
+      <div class="task-tools" contenteditable="false">
+        <button type="button" class="task-mini task-drag" title="Arraste para mover"><i class="bi bi-grip-vertical"></i></button>
+        <button type="button" class="task-mini task-remove" title="Remover caixa"><i class="bi bi-x"></i></button>
+      </div>`;
+    item.querySelector('.task-text').textContent = text;
+    return item;
+  }
+
+  function focusTaskText(taskItem) {
+    const textEl = taskItem.querySelector('.task-text');
+    if (!textEl) return;
+    textEl.focus();
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(textEl);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function insertTaskNearSelection() {
+    const editor = getEditorEl();
+    editor.focus();
+    const sel = window.getSelection();
+    const anchor = sel && sel.anchorNode ? sel.anchorNode : null;
+    const currentTask = anchor && anchor.nodeType === 1
+      ? anchor.closest('.task-item')
+      : (anchor && anchor.parentElement ? anchor.parentElement.closest('.task-item') : null);
+
+    const task = createTaskItem();
+    if (currentTask && currentTask.parentNode === editor) {
+      currentTask.after(task);
+    } else {
+      editor.appendChild(task);
+    }
+    ensureTaskAddButton(editor);
+    focusTaskText(task);
+    scheduleAutosave();
+    updateCharCount();
+  }
+
+  function insertOneShotQuote() {
+    const editor = getEditorEl();
+    editor.focus();
+    const sel = window.getSelection();
+    const range = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+
+    const quote = document.createElement('blockquote');
+    const selectedText = sel ? sel.toString().trim() : '';
+    if (selectedText) quote.textContent = selectedText;
+    else quote.innerHTML = '<br>';
+
+    const nextLine = document.createElement('p');
+    nextLine.innerHTML = '<br>';
+
+    if (range && editor.contains(range.commonAncestorContainer)) {
+      range.deleteContents();
+      const frag = document.createDocumentFragment();
+      frag.appendChild(quote);
+      frag.appendChild(nextLine);
+      range.insertNode(frag);
+    } else {
+      editor.appendChild(quote);
+      editor.appendChild(nextLine);
+    }
+
+    const newRange = document.createRange();
+    newRange.setStart(nextLine, 0);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  }
+
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -868,8 +1635,134 @@
     });
   }
 
+  function renderDailyTasks() {
+    const query = (document.getElementById('daily-search-input')?.value || '').trim().toLowerCase();
+    const activeTabBtn = document.querySelector('.daily-tab.active');
+    const typeTab = activeTabBtn ? activeTabBtn.dataset.dailyTab : 'all';
+    let source = query
+      ? dailyTasks.filter(task => {
+          const hay = `${task.text || ''} ${task.fixed ? 'fixa' : 'não fixa'} ${task.priority || ''} ${task.time || ''}`.toLowerCase();
+          return hay.includes(query);
+        })
+      : dailyTasks.slice();
+
+    source = source.filter(task => {
+      if (typeTab === 'fixed' && !task.fixed) return false;
+      if (typeTab === 'flex' && task.fixed) return false;
+      return true;
+    });
+
+    const pWeight = { alta: 0, media: 1, baixa: 2 };
+    source = source.sort((a, b) => {
+      const pa = pWeight[a.priority] ?? 3;
+      const pb = pWeight[b.priority] ?? 3;
+      if (pa !== pb) return pa - pb;
+      const ta = a.time || '99:99';
+      const tb = b.time || '99:99';
+      if (ta !== tb) return ta.localeCompare(tb);
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    document.getElementById('daily-total').textContent = dailyTasks.length;
+    document.getElementById('daily-fixed').textContent = dailyTasks.filter(task => task.fixed).length;
+    document.getElementById('daily-flex').textContent = dailyTasks.filter(task => !task.fixed).length;
+    document.getElementById('daily-visible').textContent = source.length;
+
+    const listEl = document.getElementById('daily-list');
+    if (!source.length) {
+      listEl.innerHTML = `<div class="daily-empty">${query ? 'Nenhuma tarefa encontrada.' : 'Nenhuma tarefa cadastrada.'}</div>`;
+      return;
+    }
+
+    listEl.innerHTML = source.map(task => `
+      <div class="daily-task-row${task.done ? ' done' : ''}" data-id="${task.id}">
+        <input type="checkbox" class="daily-task-check" ${task.done ? 'checked' : ''}>
+        <div class="daily-task-text">
+          <div>${escHtml(task.text || '')}</div>
+          <div class="daily-task-meta">
+            <span class="daily-badge">${task.fixed ? 'Fixa' : 'Não fixa'}</span>
+            <span class="daily-badge priority-${task.priority || 'media'}">Prioridade ${escHtml(task.priority || 'media')}</span>
+            <span class="daily-badge"><i class="bi bi-clock"></i> ${escHtml(task.time || '--:--')}</span>
+          </div>
+        </div>
+        <button type="button" class="daily-task-remove" title="Excluir"><i class="bi bi-trash3"></i></button>
+      </div>
+    `).join('');
+  }
+
+  function addDailyTask() {
+    const input = document.getElementById('daily-task-input');
+    const type = document.getElementById('daily-task-type').value;
+    const priority = document.getElementById('daily-task-priority').value;
+    const time = document.getElementById('daily-task-time').value || '';
+    const text = input.value.trim();
+    if (!text) {
+      showToast('Digite uma tarefa diária');
+      input.focus();
+      return;
+    }
+
+    dailyTasks.unshift({
+      id: uid(),
+      text,
+      fixed: type === 'fixed',
+      priority,
+      time,
+      done: false,
+      createdAt: Date.now()
+    });
+
+    saveDailyTasks(dailyTasks);
+    document.getElementById('daily-search-input').value = '';
+    input.value = '';
+    document.getElementById('daily-task-time').value = '';
+    document.getElementById('daily-task-priority').value = 'media';
+    document.getElementById('daily-task-type').value = 'fixed';
+    renderDailyTasks();
+    showToast(type === 'fixed' ? 'Tarefa fixa adicionada' : 'Tarefa não fixa adicionada');
+    closeDailyTaskModal();
+  }
+
+  function openDailyTaskModal() {
+    document.getElementById('modal-daily-task').classList.add('open');
+    setTimeout(() => document.getElementById('daily-task-input').focus(), 120);
+  }
+
+  function closeDailyTaskModal() {
+    document.getElementById('modal-daily-task').classList.remove('open');
+  }
+
+  function onDailyListClick(event) {
+    const row = event.target.closest('.daily-task-row');
+    if (!row) return;
+    const task = dailyTasks.find(item => item.id === row.dataset.id);
+    if (!task) return;
+
+    if (event.target.closest('.daily-task-remove')) {
+      dailyTasks = dailyTasks.filter(item => item.id !== task.id);
+      saveDailyTasks(dailyTasks);
+      renderDailyTasks();
+      showToast('Tarefa removida');
+      return;
+    }
+
+    if (event.target.classList.contains('daily-task-check')) {
+      task.done = event.target.checked;
+      saveDailyTasks(dailyTasks);
+      renderDailyTasks();
+      return;
+    }
+
+    task.done = !task.done;
+    saveDailyTasks(dailyTasks);
+    renderDailyTasks();
+  }
+
   /* ── RENDER LIST ──────────────────────────────────────────────── */
   function getSorted(arr) {
+    if (sortMode === 'manual') {
+      return [...arr].sort((a, b) => (a.manualOrder ?? Number.MAX_SAFE_INTEGER) - (b.manualOrder ?? Number.MAX_SAFE_INTEGER));
+    }
     const pinned = arr.filter(n => n.pinned);
     const rest   = arr.filter(n => !n.pinned);
     const sort = list => {
@@ -887,7 +1780,7 @@
     let filtered = query
       ? notes.filter(n =>
           (n.title||'').toLowerCase().includes(query) ||
-          (n.content||'').toLowerCase().includes(query) ||
+          stripHtml(n.content||'').toLowerCase().includes(query) ||
           (n.tag||'').toLowerCase().includes(query))
       : notes;
 
@@ -909,9 +1802,22 @@
       <div class="note-card${n.pinned ? ' pinned' : ''}" data-id="${n.id}">
         <div class="note-card-header">
           <span class="note-title">${escHtml(n.title || 'Sem título')}</span>
-          ${n.pinned ? '<span class="pin-icon"><i class="bi bi-pin-fill"></i></span>' : ''}
+          <div class="note-card-actions">
+            ${n.pinned ? '<span class="pin-icon"><i class="bi bi-pin-fill"></i></span>' : ''}
+            <button class="note-menu-btn" type="button" title="Mais opções"><i class="bi bi-three-dots-vertical"></i></button>
+            <div class="note-menu" role="menu">
+              <button class="note-menu-item" type="button" data-action="pin" data-id="${n.id}">
+                <i class="bi ${n.pinned ? 'bi-pin-angle' : 'bi-pin-angle-fill'}"></i>
+                ${n.pinned ? 'Desafixar' : 'Fixar'}
+              </button>
+              <button class="note-menu-item danger" type="button" data-action="delete" data-id="${n.id}">
+                <i class="bi bi-trash3"></i>
+                Excluir
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="note-preview">${escHtml(n.content || '')}</div>
+        <div class="note-preview">${escHtml(stripHtml(n.content || ''))}</div>
         <div class="note-meta">
           <span class="note-date">${fmtDate(n.updatedAt)}</span>
           ${n.tag ? `<span class="note-tag">${escHtml(n.tag)}</span>` : ''}
@@ -919,7 +1825,165 @@
       </div>`).join('');
 
     list.querySelectorAll('.note-card').forEach(card => {
-      card.addEventListener('click', () => openNote(card.dataset.id));
+      card.addEventListener('click', e => {
+        if (e.target.closest('.note-card-actions')) return;
+        if (Date.now() < suppressNoteOpenUntil) return;
+        openNote(card.dataset.id);
+      });
+    });
+
+    list.querySelectorAll('.note-menu-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const menu = btn.nextElementSibling;
+        const willOpen = !menu.classList.contains('open');
+        list.querySelectorAll('.note-menu.open').forEach(m => m.classList.remove('open'));
+        if (willOpen) menu.classList.add('open');
+      });
+    });
+
+    list.querySelectorAll('.note-menu-item').forEach(item => {
+      item.addEventListener('pointerdown', e => e.stopPropagation());
+      item.addEventListener('click', e => {
+        e.stopPropagation();
+        const action = item.dataset.action;
+        const noteId = item.dataset.id;
+        const note = findNote(noteId);
+        if (!note) return;
+
+        list.querySelectorAll('.note-menu.open').forEach(m => m.classList.remove('open'));
+
+        if (action === 'pin') {
+          note.pinned = !note.pinned;
+          saveNotes(notes);
+          renderList();
+          showToast(note.pinned ? 'Nota fixada' : 'Nota desafixada');
+          return;
+        }
+
+        if (action === 'delete') {
+          currentId = noteId;
+          openDeleteModal();
+        }
+      });
+    });
+
+    bindNoteReorderEvents();
+  }
+
+  function applyManualOrderFromDom(listEl) {
+    const ids = [...listEl.querySelectorAll('.note-card')].map(card => card.dataset.id);
+    const idSet = new Set(ids);
+    let order = 0;
+
+    ids.forEach(id => {
+      const note = findNote(id);
+      if (!note) return;
+      note.manualOrder = order++;
+    });
+
+    notes
+      .filter(n => !idSet.has(n.id))
+      .sort((a, b) => (a.manualOrder ?? Number.MAX_SAFE_INTEGER) - (b.manualOrder ?? Number.MAX_SAFE_INTEGER))
+      .forEach(n => { n.manualOrder = order++; });
+
+    sortMode = 'manual';
+    document.getElementById('sort-label').textContent = SORT_MODES.find(m => m.key === sortMode).label;
+    saveNotes(notes);
+    renderList();
+    showToast('Ordem atualizada');
+  }
+
+  function bindNoteReorderEvents() {
+    if (noteReorderBound) return;
+    noteReorderBound = true;
+    const list = document.getElementById('notes-list');
+
+    const finishReorder = () => {
+      if (notePressTimer) {
+        clearTimeout(notePressTimer);
+        notePressTimer = null;
+      }
+
+      if (notePressCard) {
+        notePressCard.classList.remove('holding');
+      }
+
+      if (noteDragCard) {
+        noteDragCard.classList.remove('reordering');
+        list.classList.remove('reorder-mode');
+        suppressNoteOpenUntil = Date.now() + 400;
+        applyManualOrderFromDom(list);
+        noteDragCard = null;
+      }
+
+      notePressCard = null;
+      noteDragPointerId = null;
+    };
+
+    list.addEventListener('pointerdown', e => {
+      if (e.target.closest('.note-card-actions')) return;
+      const card = e.target.closest('.note-card');
+      if (!card) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+      notePressCard = card;
+      noteDragPointerId = e.pointerId;
+      notePressStartX = e.clientX;
+      notePressStartY = e.clientY;
+      notePressCard.classList.add('holding');
+
+      notePressTimer = setTimeout(() => {
+        if (!notePressCard) return;
+        notePressCard.classList.remove('holding');
+        noteDragCard = card;
+        noteDragCard.classList.add('reordering');
+        list.classList.add('reorder-mode');
+        suppressNoteOpenUntil = Date.now() + 600;
+      }, 1000);
+    });
+
+    list.addEventListener('pointermove', e => {
+      if (noteDragPointerId !== null && e.pointerId !== noteDragPointerId) return;
+
+      if (!noteDragCard && notePressCard) {
+        if (Math.abs(e.clientX - notePressStartX) > 8 || Math.abs(e.clientY - notePressStartY) > 8) {
+          clearTimeout(notePressTimer);
+          notePressTimer = null;
+          notePressCard.classList.remove('holding');
+          notePressCard = null;
+          noteDragPointerId = null;
+        }
+        return;
+      }
+
+      if (!noteDragCard) return;
+
+      e.preventDefault();
+      const over = document.elementFromPoint(e.clientX, e.clientY);
+      const overCard = over && over.closest ? over.closest('.note-card') : null;
+      if (!overCard || overCard === noteDragCard || overCard.parentNode !== list) return;
+
+      const rect = overCard.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const midX = rect.left + rect.width / 2;
+      const nearMiddle = Math.abs(e.clientY - midY) < 14;
+      const before = e.clientY < midY || (nearMiddle && e.clientX < midX);
+      if (before) list.insertBefore(noteDragCard, overCard);
+      else list.insertBefore(noteDragCard, overCard.nextSibling);
+    });
+
+    list.addEventListener('pointerup', finishReorder);
+    list.addEventListener('pointercancel', finishReorder);
+    list.addEventListener('pointerleave', () => {
+      if (!noteDragCard && notePressTimer) {
+        clearTimeout(notePressTimer);
+        notePressTimer = null;
+        if (notePressCard) notePressCard.classList.remove('holding');
+        notePressCard = null;
+        noteDragPointerId = null;
+      }
     });
   }
 
@@ -936,22 +2000,24 @@
     currentId = id;
     const note = findNote(id);
     document.getElementById('note-title').value   = note.title   || '';
-    document.getElementById('note-content').value = note.content || '';
+    setEditorHtml(normalizeNoteHtml(note.content || ''));
     document.getElementById('tag-input').value    = note.tag     || '';
     updateCharCount();
     updatePinBtn();
     document.getElementById('save-status').textContent = '✓';
     showScreen('screen-editor');
-    setTimeout(() => document.getElementById('note-content').focus(), 200);
+    setTimeout(() => getEditorEl().focus(), 200);
   }
 
   function newNote() {
+    const nextManualOrder = notes.reduce((max, n) => Math.max(max, n.manualOrder ?? -1), -1) + 1;
     const note = {
       id:        uid(),
       title:     '',
       content:   '',
       tag:       '',
       pinned:    false,
+      manualOrder: nextManualOrder,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -972,15 +2038,28 @@
     const note = findNote(currentId);
     if (!note) return;
     note.title     = document.getElementById('note-title').value.trim();
-    note.content   = document.getElementById('note-content').value;
+    note.content   = getEditorHtml();
     note.tag       = document.getElementById('tag-input').value.trim().toLowerCase();
     note.updatedAt = Date.now();
     saveNotes(notes);
     document.getElementById('save-status').textContent = '✓';
   }
 
+  function removeCurrentNoteIfEmpty() {
+    if (!currentId) return false;
+    const note = findNote(currentId);
+    if (!note) return false;
+    const isEmpty = !(note.title || '').trim()
+      && !stripHtml(note.content || '').trim()
+      && !(note.tag || '').trim();
+    if (!isEmpty) return false;
+    notes = notes.filter(n => n.id !== currentId);
+    saveNotes(notes);
+    return true;
+  }
+
   function updateCharCount() {
-    const len = document.getElementById('note-content').value.length;
+    const len = stripHtml(getEditorHtml()).length;
     document.getElementById('char-count').textContent = len.toLocaleString('pt-BR');
   }
 
@@ -1014,6 +2093,7 @@
     { key: 'recent',  label: 'Recentes ▾' },
     { key: 'oldest',  label: 'Antigas ▾'  },
     { key: 'alpha',   label: 'A → Z ▾'   },
+    { key: 'manual',  label: 'Manual ▾'  },
   ];
   function cycleSort() {
     const idx = SORT_MODES.findIndex(m => m.key === sortMode);
@@ -1026,30 +2106,16 @@
   document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.addEventListener('mousedown', e => { e.preventDefault(); });
     btn.addEventListener('click', () => {
-      const ta    = document.getElementById('note-content');
-      const start = ta.selectionStart;
-      const end   = ta.selectionEnd;
-      const sel   = ta.value.slice(start, end);
-
-      if (btn.dataset.wrap) {
-        const w = btn.dataset.wrap;
-        const we = btn.dataset.wrapEnd || w;
-        const insert = w + (sel || 'texto') + we;
-        ta.setRangeText(insert, start, end, 'end');
-        if (!sel) {
-          ta.selectionStart = start + w.length;
-          ta.selectionEnd   = start + w.length + 5;
-        }
-      } else if (btn.dataset.prefix) {
-        const p = btn.dataset.prefix;
-        const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
-        ta.setRangeText(p, lineStart, lineStart, 'end');
-      } else if (btn.dataset.separator) {
-        const sep = '\n' + btn.dataset.separator + '\n';
-        ta.setRangeText(sep, end, end, 'end');
-      }
-
-      ta.focus();
+      const action = btn.dataset.action;
+      getEditorEl().focus();
+      if (action === 'bold') document.execCommand('bold');
+      else if (action === 'italic') document.execCommand('italic');
+      else if (action === 'list') document.execCommand('insertUnorderedList');
+      else if (action === 'h1') document.execCommand('formatBlock', false, 'h1');
+      else if (action === 'h2') document.execCommand('formatBlock', false, 'h2');
+      else if (action === 'quote') insertOneShotQuote();
+      else if (action === 'hr') document.execCommand('insertHorizontalRule');
+      else if (action === 'task') insertTaskNearSelection();
       scheduleAutosave();
       updateCharCount();
     });
@@ -1058,6 +2124,7 @@
   /* ── BACK ─────────────────────────────────────────────────────── */
   function goBack() {
     commitSave();
+    removeCurrentNoteIfEmpty();
     renderList();
     showScreen('screen-list');
     currentId = null;
@@ -1085,13 +2152,118 @@
     if (e.target === document.getElementById('modal-delete')) closeDeleteModal();
   });
 
+  document.addEventListener('click', e => {
+    if (e.target.closest('.note-card-actions')) return;
+    document.querySelectorAll('.note-menu.open').forEach(m => m.classList.remove('open'));
+  });
+
   document.getElementById('note-title').addEventListener('input', scheduleAutosave);
   document.getElementById('note-content').addEventListener('input', () => {
+    syncTaskVisuals(getEditorEl());
     scheduleAutosave();
     updateCharCount();
   });
+
+  document.getElementById('note-content').addEventListener('click', e => {
+    if (e.target.closest('.task-add-bottom')) {
+      const editor = getEditorEl();
+      const task = createTaskItem();
+      const allTasks = editor.querySelectorAll('.task-item');
+      if (allTasks.length) allTasks[allTasks.length - 1].after(task);
+      else editor.appendChild(task);
+      ensureTaskAddButton(editor);
+      focusTaskText(task);
+      scheduleAutosave();
+      updateCharCount();
+      return;
+    }
+
+    const item = e.target.closest('.task-item');
+    if (!item) return;
+    if (e.target.classList.contains('task-check')) {
+      item.classList.toggle('checked', e.target.checked);
+      scheduleAutosave();
+      return;
+    }
+
+    if (e.target.closest('.task-remove')) {
+      const next = item.nextElementSibling;
+      const prev = item.previousElementSibling;
+      item.remove();
+      ensureTaskAddButton(getEditorEl());
+      const target = (next && next.classList && next.classList.contains('task-item'))
+        ? next.querySelector('.task-text')
+        : ((prev && prev.classList && prev.classList.contains('task-item')) ? prev.querySelector('.task-text') : getEditorEl());
+      target.focus();
+      scheduleAutosave();
+      updateCharCount();
+    }
+  });
+
+  let draggingTask = null;
+  document.getElementById('note-content').addEventListener('dragstart', e => {
+    const item = e.target.closest('.task-item');
+    if (!item) return;
+    draggingTask = item;
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.setData('text/plain', 'task');
+  });
+  document.getElementById('note-content').addEventListener('dragover', e => {
+    if (!draggingTask) return;
+    e.preventDefault();
+    const over = e.target.closest('.task-item');
+    if (!over || over === draggingTask) return;
+    const rect = over.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    if (before) over.parentNode.insertBefore(draggingTask, over);
+    else over.parentNode.insertBefore(draggingTask, over.nextSibling);
+  });
+  document.getElementById('note-content').addEventListener('drop', e => {
+    if (!draggingTask) return;
+    e.preventDefault();
+    draggingTask.classList.remove('dragging');
+    draggingTask = null;
+    ensureTaskAddButton(getEditorEl());
+    scheduleAutosave();
+  });
+  document.getElementById('note-content').addEventListener('dragend', () => {
+    if (!draggingTask) return;
+    draggingTask.classList.remove('dragging');
+    draggingTask = null;
+    ensureTaskAddButton(getEditorEl());
+    scheduleAutosave();
+  });
+  document.addEventListener('dragover', e => {
+    if (!draggingTask) return;
+    e.preventDefault();
+  });
+  document.addEventListener('drop', e => {
+    if (!draggingTask) return;
+    e.preventDefault();
+  });
   document.getElementById('tag-input').addEventListener('input', scheduleAutosave);
   document.getElementById('search-input').addEventListener('input', renderList);
+  document.getElementById('daily-add-btn').addEventListener('click', addDailyTask);
+  document.getElementById('daily-search-input').addEventListener('input', renderDailyTasks);
+  document.querySelectorAll('.daily-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.daily-tab').forEach(t => t.classList.toggle('active', t === tab));
+      renderDailyTasks();
+    });
+  });
+  document.getElementById('btn-open-daily-modal').addEventListener('click', openDailyTaskModal);
+  document.getElementById('btn-close-daily-modal').addEventListener('click', closeDailyTaskModal);
+  document.getElementById('modal-daily-task').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-daily-task')) closeDailyTaskModal();
+  });
+  document.getElementById('daily-task-input').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    addDailyTask();
+  });
+  document.getElementById('daily-list').addEventListener('click', onDailyListClick);
 
   /* ── SWIPE BACK ───────────────────────────────────────────────── */
   let touchStartX = 0;
@@ -1105,43 +2277,106 @@
 
   /* ── KEYBOARD: ENTER on new line auto checkbox ────────────────── */
   document.getElementById('note-content').addEventListener('keydown', e => {
-    if (e.key !== 'Enter') return;
-    const ta    = e.target;
-    const line  = ta.value.slice(ta.value.lastIndexOf('\n', ta.selectionStart - 1) + 1, ta.selectionStart);
-    const checkbox = line.match(/^(\s*)\[( |x)\] /);
-    const bullet   = line.match(/^(\s*)- /);
-    if (checkbox) {
+    if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
-      const indent = checkbox[1];
-      ta.setRangeText('\n' + indent + '[ ] ', ta.selectionStart, ta.selectionEnd, 'end');
-      scheduleAutosave();
-    } else if (bullet) {
-      if (line.trim() === '-') return;
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      const sel = window.getSelection();
+      const anchorNode = sel && sel.anchorNode ? sel.anchorNode : null;
+      const anchorEl = anchorNode
+        ? (anchorNode.nodeType === 1 ? anchorNode : anchorNode.parentElement)
+        : null;
+      const quoteEl = anchorEl ? anchorEl.closest('blockquote') : null;
+      if (quoteEl) {
+        e.preventDefault();
+        const nextLine = document.createElement('p');
+        nextLine.innerHTML = '<br>';
+        quoteEl.after(nextLine);
+
+        const range = document.createRange();
+        range.setStart(nextLine, 0);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        scheduleAutosave();
+        updateCharCount();
+        return;
+      }
+    }
+
+    let taskText = e.target.closest ? e.target.closest('.task-text') : null;
+    if (!taskText) {
+      const sel = window.getSelection();
+      const anchorNode = sel && sel.anchorNode ? sel.anchorNode : null;
+      const anchorEl = anchorNode
+        ? (anchorNode.nodeType === 1 ? anchorNode : anchorNode.parentElement)
+        : null;
+      taskText = anchorEl ? anchorEl.closest('.task-text') : null;
+    }
+    if (!taskText) return;
+
+    if (e.key === 'Enter') {
       e.preventDefault();
-      const indent = bullet[1];
-      ta.setRangeText('\n' + indent + '- ', ta.selectionStart, ta.selectionEnd, 'end');
+      const currentItem = taskText.closest('.task-item');
+      const newItem = createTaskItem();
+      currentItem.after(newItem);
+      ensureTaskAddButton(getEditorEl());
+      focusTaskText(newItem);
       scheduleAutosave();
+      updateCharCount();
+      return;
+    }
+
+    if (e.key === 'Backspace' && !taskText.textContent.trim()) {
+      const currentItem = taskText.closest('.task-item');
+      const prev = currentItem.previousElementSibling;
+      const next = currentItem.nextElementSibling;
+      e.preventDefault();
+      currentItem.remove();
+      ensureTaskAddButton(getEditorEl());
+      const target = (prev && prev.classList && prev.classList.contains('task-item'))
+        ? prev.querySelector('.task-text')
+        : ((next && next.classList && next.classList.contains('task-item')) ? next.querySelector('.task-text') : getEditorEl());
+      target.focus();
+      scheduleAutosave();
+      updateCharCount();
     }
   });
 
   /* ── INIT ─────────────────────────────────────────────────────── */
   renderList();
+  renderDailyTasks();
+  showScreen('screen-tasks');
 
   /* ══════════════════════════════════════════════════════════════════
      BOTTOM NAV
   ══════════════════════════════════════════════════════════════════ */
-  let activeTab = 'notes';
+  let activeTab = 'tasks';
 
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.tab;
       if (target === activeTab) return;
+      // leaving editor: commit and remove empty note
+      const editorVisible = !document.getElementById('screen-editor').classList.contains('hidden');
+      if (editorVisible) {
+        commitSave();
+        removeCurrentNoteIfEmpty();
+        currentId = null;
+      }
       activeTab = target;
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === target));
       // hide editor if switching tab
       if (target === 'notes') {
         showScreen('screen-list');
         document.getElementById('bottom-nav').style.display = 'flex';
+      } else if (target === 'tasks') {
+        showScreen('screen-tasks');
+        document.getElementById('bottom-nav').style.display = 'flex';
+        renderDailyTasks();
       } else if (target === 'finance') {
         showScreen('screen-finance');
         document.getElementById('bottom-nav').style.display = 'flex';
@@ -1176,10 +2411,13 @@
   let expenses = loadExpenses();
   let finMonth = new Date(); // displayed month
   finMonth.setDate(1);
+  let finTab    = 'fixed';
   let finFilter = 'all';
+  let flowFilter = 'all';
   let finSort    = 'date-asc';
   let editingExpId = null;
   let deleteExpId  = null;
+  let pendingSaveData = null;
 
   /* ── CATEGORIES ─────────────────────────────────────────────────── */
   const CAT_ICONS = {
@@ -1207,6 +2445,7 @@
 
   /* ── STATUS auto-detect ─────────────────────────────────────────── */
   function resolveStatus(exp) {
+    if (exp.kind === 'saida' || exp.kind === 'entrada') return 'paid';
     if (exp.status === 'paid') return 'paid';
     if (!exp.due) return exp.status || 'pending';
     // if due date passed and not paid → late
@@ -1242,7 +2481,10 @@
     const mk = monthKey(finMonth);
     return expenses.filter(e => {
       if (!e.due) return false;
-      return e.due.slice(0, 7) === mk;
+      if (e.due.slice(0, 7) !== mk) return false;
+      if (finTab === 'dashboard') return true;
+      if (finTab === 'flow') return e.kind === 'saida' || e.kind === 'entrada';
+      return (e.kind || 'fixed') === 'fixed';
     });
   }
 
@@ -1250,12 +2492,42 @@
   function renderFinanceList() {
     document.getElementById('fin-month-label').textContent = monthLabel(finMonth);
 
+    // show/hide controls for each mode
+    const isDashboard = finTab === 'dashboard';
+    const isFlow = finTab === 'flow';
+    document.querySelector('.sort-bar').style.display      = (isFlow || isDashboard) ? 'none' : '';
+    document.getElementById('fin-status-filters').style.display = (isFlow || isDashboard) ? 'none' : '';
+    document.getElementById('fin-flow-filters').style.display   = isFlow ? '' : 'none';
+    document.getElementById('fin-dashboard').style.display      = isDashboard ? '' : 'none';
+    document.getElementById('fin-list').style.display           = isDashboard ? 'none' : '';
+    document.getElementById('btn-new-expense').style.display    = isDashboard ? 'none' : '';
+    document.querySelector('#parc-section').style.display  = (isFlow || isDashboard) ? 'none' : '';
+    document.querySelector('#repeat-section').style.display = (isFlow || isDashboard) ? 'none' : '';
+    document.getElementById('fin-sum-open').style.display  = '';
+    document.getElementById('fin-total-label').textContent = (isFlow || isDashboard) ? 'Saldo' : 'Total';
+    document.getElementById('fin-paid-label').textContent  = (isFlow || isDashboard) ? 'Entradas' : 'Pago';
+    document.getElementById('fin-open-label').textContent  = isDashboard ? 'Saídas + Fixas' : (isFlow ? 'Saída' : 'Aberto');
+    document.getElementById('fc-pending').style.display    = (isFlow || isDashboard) ? 'none' : '';
+    document.getElementById('fc-late').style.display       = (isFlow || isDashboard) ? 'none' : '';
+    // reset filter to 'all' if an incompatible filter is active
+    if ((isFlow || isDashboard) && finFilter !== 'all') {
+      finFilter = 'all';
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+    }
+
     let list = visibleExpenses();
     // apply status filter
     if (finFilter !== 'all') {
       list = list.filter(e => resolveStatus(e) === finFilter);
     }
-    // sort by selected criterion
+    // apply flow filter
+    if (isFlow && flowFilter !== 'all') {
+      list = list.filter(e => e.kind === flowFilter);
+    }
+    // sort
+    if (isFlow) {
+      list = list.slice().sort((a, b) => (b.due || '').localeCompare(a.due || ''));
+    } else
     list = list.slice().sort((a, b) => {
       if (finSort === 'value-desc') return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
       if (finSort === 'value-asc')  return (parseFloat(a.amount)||0) - (parseFloat(b.amount)||0);
@@ -1266,32 +2538,97 @@
 
     // summary (all of the month, regardless of filter)
     const all = visibleExpenses();
-    const totalVal  = all.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-    const paidVal   = all.filter(e => resolveStatus(e) === 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-    const openVal   = all.filter(e => resolveStatus(e) !== 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    let totalVal = 0;
+    let paidVal = 0;
+    let openVal = 0;
+    if (isFlow || isDashboard) {
+      const entradasVal = all.filter(e => e.kind === 'entrada').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const saidasVal   = all.filter(e => e.kind !== 'entrada').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      totalVal = entradasVal - saidasVal;
+      paidVal  = entradasVal;
+      openVal  = saidasVal;
+    } else {
+      totalVal  = all.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      paidVal   = all.filter(e => resolveStatus(e) === 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      openVal   = all.filter(e => resolveStatus(e) !== 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    }
 
     document.getElementById('fin-total').textContent = fmtBRL(totalVal);
     document.getElementById('fin-paid').textContent  = fmtBRL(paidVal);
     document.getElementById('fin-open').textContent  = fmtBRL(openVal);
 
+    if (isDashboard) {
+      const entradasVal = all.filter(e => e.kind === 'entrada').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const saidasVal   = all.filter(e => e.kind === 'saida').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const fixasVal    = all.filter(e => (e.kind || 'fixed') === 'fixed').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const fixasPagas  = all.filter(e => (e.kind || 'fixed') === 'fixed' && resolveStatus(e) === 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const fixasAbertas = all.filter(e => (e.kind || 'fixed') === 'fixed' && resolveStatus(e) !== 'paid').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const saldoMes = entradasVal - (saidasVal + fixasVal);
+
+      document.getElementById('fin-dashboard').innerHTML = `
+        <div class="dash-grid">
+          <div class="dash-card">
+            <span class="dash-card-label">Entradas</span>
+            <span class="dash-card-val safe">${fmtBRL(entradasVal)}</span>
+          </div>
+          <div class="dash-card">
+            <span class="dash-card-label">Saídas</span>
+            <span class="dash-card-val danger">${fmtBRL(saidasVal)}</span>
+          </div>
+          <div class="dash-card">
+            <span class="dash-card-label">Despesas Fixas</span>
+            <span class="dash-card-val warn">${fmtBRL(fixasVal)}</span>
+          </div>
+          <div class="dash-card">
+            <span class="dash-card-label">Fixas Pagas</span>
+            <span class="dash-card-val safe">${fmtBRL(fixasPagas)}</span>
+          </div>
+          <div class="dash-card">
+            <span class="dash-card-label">Fixas Abertas</span>
+            <span class="dash-card-val danger">${fmtBRL(fixasAbertas)}</span>
+          </div>
+          <div class="dash-card">
+            <span class="dash-card-label">Resultado do Mês</span>
+            <span class="dash-card-val ${saldoMes >= 0 ? 'safe' : 'danger'}">${fmtBRL(saldoMes)}</span>
+          </div>
+        </div>
+        <div class="dash-note">Resumo mensal consolidado de Entradas, Saídas e Despesas Fixas.</div>
+      `;
+      return;
+    }
+
     const container = document.getElementById('fin-list');
     if (list.length === 0) {
+      const emptyIcon = isFlow ? 'bi-arrow-down-up' : 'bi-cash-stack';
+      const emptyMsg  = isFlow
+        ? 'Nenhuma movimentação registrada neste mês.<br>Toque em <strong>＋</strong> para adicionar.'
+        : `Nenhuma despesa ${ finFilter !== 'all' ? 'com esse filtro ' : '' }neste mês.<br>Toque em <strong>＋</strong> para adicionar.`;
       container.innerHTML = `
         <div class="empty-state">
-           <i class="bi bi-cash-stack empty-icon"></i>
-          <p>Nenhuma despesa ${ finFilter !== 'all' ? 'com esse filtro ' : '' }neste mês.<br>Toque em <strong>＋</strong> para adicionar.</p>
+          <i class="bi ${emptyIcon} empty-icon"></i>
+          <p>${emptyMsg}</p>
         </div>`;
       return;
     }
 
     container.innerHTML = list.map(e => {
       const st    = resolveStatus(e);
-      const amtCls = st === 'paid' ? 'paid-amt' : (st === 'late' ? 'late-amt' : '');
-      const badgeCls = 'badge-' + st;
-      const badgeTxt = st === 'paid' ? '<i class="bi bi-check-circle-fill"></i> Pago' : (st === 'late' ? '<i class="bi bi-exclamation-circle-fill"></i> Atrasado' : '<i class="bi bi-clock"></i> Pendente');
+      const flowType = e.kind === 'entrada' ? 'entrada' : 'saida';
+      const amtCls = isFlow
+        ? (flowType === 'entrada' ? 'paid-amt' : 'late-amt')
+        : (st === 'paid' ? 'paid-amt' : (st === 'late' ? 'late-amt' : ''));
+      const badgeCls = isFlow
+        ? (flowType === 'entrada' ? 'badge-paid' : 'badge-late')
+        : ('badge-' + st);
+      const badgeTxt = isFlow
+        ? (flowType === 'entrada'
+          ? '<i class="bi bi-arrow-down-circle-fill"></i> Entrada'
+          : '<i class="bi bi-arrow-up-circle-fill"></i> Saída')
+        : (st === 'paid' ? '<i class="bi bi-check-circle-fill"></i> Pago' : (st === 'late' ? '<i class="bi bi-exclamation-circle-fill"></i> Atrasado' : '<i class="bi bi-clock"></i> Pendente'));
       const parcTxt  = e.installment ? ` · ${e.parcCurrent}/${e.parcTotal}x` : '';
       const recurTxt = e.repeat ? ` · ${freqLabel(e.freq)}` : '';
       const toggleTxt = st === 'paid' ? 'Desmarcar' : 'Pagar';
+      const amtPrefix = isFlow ? (flowType === 'entrada' ? '+ ' : '- ') : '';
       return `
         <div class="exp-card status-${st}" data-id="${e.id}">
           <div class="exp-row1">
@@ -1300,14 +2637,14 @@
               <div class="exp-name">${escHtml(e.name)}</div>
               ${e.desc ? `<div class="exp-desc">${escHtml(e.desc)}</div>` : ''}
             </div>
-            <span class="exp-amount ${amtCls}">${fmtBRL(parseFloat(e.amount)||0)}</span>
+            <span class="exp-amount ${amtCls}">${amtPrefix}${fmtBRL(parseFloat(e.amount)||0)}</span>
           </div>
           <div class="exp-row2">
             <span class="exp-badge ${badgeCls}">${badgeTxt}</span>
             ${e.due ? `<span class="exp-due"><i class="bi bi-calendar3"></i> ${fmtDue(e.due)}</span>` : ''}
             ${parcTxt ? `<span class="exp-parc"><i class="bi bi-credit-card"></i>${parcTxt}</span>` : ''}
             ${recurTxt ? `<span class="exp-recur"><i class="bi bi-arrow-repeat"></i>${recurTxt}</span>` : ''}
-            <button class="exp-toggle-paid" data-id="${e.id}">${toggleTxt}</button>
+            ${isFlow ? '' : `<button class="exp-toggle-paid" data-id="${e.id}">${toggleTxt}</button>`}
           </div>
         </div>`;
     }).join('');
@@ -1336,6 +2673,19 @@
     return { monthly: 'Mensal', weekly: 'Semanal', biweekly: 'Quinzenal', yearly: 'Anual' }[f] || f;
   }
 
+  /* ── FIN SUB-TABS ───────────────────────────────────────────────── */
+  document.querySelectorAll('.fin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      finTab = tab.dataset.finTab;
+      document.querySelectorAll('.fin-tab').forEach(t => t.classList.toggle('active', t.dataset.finTab === finTab));
+      finFilter = 'all';
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+      flowFilter = 'all';
+      document.querySelectorAll('[data-flow-filter]').forEach(c => c.classList.toggle('active', c.dataset.flowFilter === 'all'));
+      renderFinanceList();
+    });
+  });
+
   /* ── MONTH NAV ──────────────────────────────────────────────────── */
   document.getElementById('fin-month-prev').addEventListener('click', () => {
     finMonth.setMonth(finMonth.getMonth() - 1);
@@ -1349,8 +2699,18 @@
   /* ── FILTER CHIPS ───────────────────────────────────────────────── */
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => {
+      if (!chip.dataset.filter) return;
       finFilter = chip.dataset.filter;
       document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === finFilter));
+      renderFinanceList();
+    });
+  });
+
+  /* ── FLOW FILTER CHIPS ─────────────────────────────────────────── */
+  document.querySelectorAll('[data-flow-filter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      flowFilter = chip.dataset.flowFilter;
+      document.querySelectorAll('[data-flow-filter]').forEach(c => c.classList.toggle('active', c.dataset.flowFilter === flowFilter));
       renderFinanceList();
     });
   });
@@ -1367,12 +2727,20 @@
   /* ── OPEN EXPENSE FORM ──────────────────────────────────────────── */
   let selectedCat    = 'outros';
   let selectedStatus = 'pending';
+  let selectedFlowKind = 'saida';
 
   function openExpenseForm(id) {
     editingExpId = id || null;
     const exp = id ? expenses.find(e => e.id === id) : null;
+    const isFlowForm = finTab === 'flow' || (exp && (exp.kind === 'saida' || exp.kind === 'entrada'));
 
-    document.getElementById('exp-form-title').textContent = exp ? 'Editar Despesa' : 'Nova Despesa';
+    document.getElementById('exp-form-title').textContent = isFlowForm
+      ? (exp ? 'Editar Gasto' : 'Novo Gasto')
+      : (exp ? 'Editar Despesa' : 'Nova Despesa');
+    document.getElementById('ef-save').textContent = isFlowForm
+      ? (exp ? 'Salvar gasto' : 'Adicionar gasto')
+      : 'Salvar despesa';
+    document.getElementById('ef-name-label').textContent = isFlowForm ? 'Nome do gasto *' : 'Nome da despesa *';
     document.getElementById('ef-name').value      = exp ? exp.name    : '';
     document.getElementById('ef-amount').value    = exp ? exp.amount  : '';
     document.getElementById('ef-due').value       = exp ? (exp.due || '') : todayIso();
@@ -1393,9 +2761,26 @@
     selectedStatus = exp ? (exp.status || 'pending') : 'pending';
     syncStatusBtns();
 
-    // installment fields
-    document.getElementById('parc-fields').classList.toggle('visible', !!document.getElementById('ef-installment').checked);
-    document.getElementById('repeat-fields').classList.toggle('visible', !!document.getElementById('ef-repeat').checked);
+    // flow kind
+    selectedFlowKind = exp && exp.kind === 'entrada' ? 'entrada' : 'saida';
+    syncFlowKindBtns();
+
+    // installment/repeat sections – hidden for Entradas/Saídas tab
+    document.getElementById('ef-due-row').style.display = isFlowForm ? 'none' : '';
+    document.getElementById('parc-section').style.display   = isFlowForm ? 'none' : '';
+    document.getElementById('repeat-section').style.display = isFlowForm ? 'none' : '';
+    document.getElementById('parc-fields').classList.toggle('visible', !isFlowForm && !!document.getElementById('ef-installment').checked);
+    document.getElementById('repeat-fields').classList.toggle('visible', !isFlowForm && !!document.getElementById('ef-repeat').checked);
+
+    // status buttons – hide for Entradas/Saídas, force paid
+    document.getElementById('ef-status-section').style.display = isFlowForm ? 'none' : '';
+    document.getElementById('ef-status-pending').style.display = isFlowForm ? 'none' : '';
+    document.getElementById('ef-status-late').style.display    = isFlowForm ? 'none' : '';
+    document.getElementById('ef-flow-kind-section').style.display = isFlowForm ? '' : 'none';
+    if (isFlowForm) {
+      selectedStatus = 'paid';
+      syncStatusBtns();
+    }
 
     // delete btn
     document.getElementById('ef-delete').style.display = exp ? 'flex' : 'none';
@@ -1421,6 +2806,13 @@
     });
   }
 
+  function syncFlowKindBtns() {
+    document.querySelectorAll('[data-flow-kind]').forEach(b => {
+      b.className = 'status-opt';
+      if (b.dataset.flowKind === selectedFlowKind) b.classList.add('sel-paid');
+    });
+  }
+
   /* ── CATEGORY SELECTION ─────────────────────────────────────────── */
   document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1432,10 +2824,47 @@
   /* ── STATUS SELECTION ───────────────────────────────────────────── */
   document.querySelectorAll('.status-opt').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (!btn.dataset.status) return;
       selectedStatus = btn.dataset.status;
       syncStatusBtns();
     });
   });
+
+  /* ── FLOW KIND SELECTION ───────────────────────────────────────── */
+  document.querySelectorAll('[data-flow-kind]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedFlowKind = btn.dataset.flowKind;
+      syncFlowKindBtns();
+    });
+  });
+
+  /* ── DATE HELPERS ─────────────────────────────────────────────── */
+  function addMonthsToDate(dateStr, n) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const firstOfTarget = new Date(y, m - 1 + n, 1);
+    const maxDay = new Date(firstOfTarget.getFullYear(), firstOfTarget.getMonth() + 1, 0).getDate();
+    const newDay = Math.min(d, maxDay);
+    return firstOfTarget.getFullYear() + '-'
+      + String(firstOfTarget.getMonth() + 1).padStart(2, '0') + '-'
+      + String(newDay).padStart(2, '0');
+  }
+  function addDaysToDate(dateStr, n) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + n);
+    return dt.getFullYear() + '-'
+      + String(dt.getMonth() + 1).padStart(2, '0') + '-'
+      + String(dt.getDate()).padStart(2, '0');
+  }
+  function addPeriod(dateStr, freq, times) {
+    let result = dateStr;
+    for (let i = 0; i < times; i++) {
+      if (freq === 'weekly')   result = addDaysToDate(result, 7);
+      else if (freq === 'biweekly') result = addDaysToDate(result, 14);
+      else if (freq === 'yearly')  result = addMonthsToDate(result, 12);
+      else                          result = addMonthsToDate(result, 1); // monthly
+    }
+    return result;
+  }
 
   /* ── INSTALLMENT / REPEAT TOGGLES ──────────────────────────────── */
   document.getElementById('ef-installment').addEventListener('change', e => {
@@ -1447,42 +2876,94 @@
 
   /* ── SAVE EXPENSE ───────────────────────────────────────────────── */
   document.getElementById('ef-save').addEventListener('click', () => {
+    const currentExp = editingExpId ? expenses.find(e => e.id === editingExpId) : null;
+    const isFlowForm = finTab === 'flow' || (currentExp && (currentExp.kind === 'saida' || currentExp.kind === 'entrada'));
     const name   = document.getElementById('ef-name').value.trim();
     const amount = document.getElementById('ef-amount').value;
     const due    = document.getElementById('ef-due').value;
 
-    if (!name)   { shakeInput('ef-name');   showToast('Informe o nome da despesa'); return; }
+    if (!name)   { shakeInput('ef-name');   showToast(isFlowForm ? 'Informe o nome do gasto' : 'Informe o nome da despesa'); return; }
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
                  { shakeInput('ef-amount'); showToast('Informe um valor válido'); return; }
-    if (!due)    { shakeInput('ef-due');    showToast('Informe a data de vencimento'); return; }
+    if (!isFlowForm && !due) { shakeInput('ef-due'); showToast('Informe a data de vencimento'); return; }
 
     const isInstallment = document.getElementById('ef-installment').checked;
     const isRepeat      = document.getElementById('ef-repeat').checked;
+    const freq          = document.getElementById('ef-freq').value;
+    const parcTotal     = parseInt(document.getElementById('ef-parc-total').value)  || null;
+    const parcCurrent   = parseInt(document.getElementById('ef-parc-current').value) || 1;
 
-    const expData = {
+    const baseData = {
       name,
       amount:      parseFloat(amount).toFixed(2),
-      due,
+      due:         isFlowForm ? (due || todayIso()) : due,
       desc:        document.getElementById('ef-desc').value.trim(),
       cat:         selectedCat,
-      status:      selectedStatus,
-      installment: isInstallment,
-      parcTotal:   isInstallment ? (parseInt(document.getElementById('ef-parc-total').value) || null) : null,
-      parcCurrent: isInstallment ? (parseInt(document.getElementById('ef-parc-current').value) || null) : null,
-      repeat:      isRepeat,
-      freq:        isRepeat ? document.getElementById('ef-freq').value : null,
+      status:      isFlowForm ? 'paid' : selectedStatus,
+      kind:        isFlowForm ? selectedFlowKind : 'fixed',
+      installment: isFlowForm ? false : isInstallment,
+      parcTotal:   isFlowForm ? null : (isInstallment ? parcTotal : null),
+      parcCurrent: isFlowForm ? null : (isInstallment ? parcCurrent : null),
+      repeat:      isFlowForm ? false : isRepeat,
+      freq:        isFlowForm ? null : (isRepeat ? freq : null),
       updatedAt:   Date.now()
     };
 
     if (editingExpId) {
-      const idx = expenses.findIndex(e => e.id === editingExpId);
-      if (idx !== -1) {
-        expenses[idx] = { ...expenses[idx], ...expData };
+      const exp = expenses.find(e => e.id === editingExpId);
+      const siblings = exp && exp.groupId
+        ? expenses.filter(e => e.groupId === exp.groupId)
+        : [];
+
+      if (siblings.length > 1) {
+        // Has group siblings — ask scope before saving
+        pendingSaveData = { baseData, editingId: editingExpId };
+        closeExpenseForm();
+        document.getElementById('modal-edit-scope').classList.add('open');
+        return;
       }
+
+      // No group — update directly
+      const idx = expenses.findIndex(e => e.id === editingExpId);
+      if (idx !== -1) expenses[idx] = { ...expenses[idx], ...baseData };
       showToast('Despesa atualizada');
+
+    } else if (!isFlowForm && isInstallment && parcTotal >= 2) {
+      // Create one entry per remaining installment
+      const groupId   = uid();
+      const remaining = parcTotal - parcCurrent + 1;
+      for (let i = 0; i < remaining; i++) {
+        expenses.push({
+          id:         uid(),
+          createdAt:  Date.now(),
+          groupId,
+          ...baseData,
+          due:        addMonthsToDate(due, i),
+          parcCurrent: parcCurrent + i,
+          status:     'pending'
+        });
+      }
+      showToast(remaining + ' parcela' + (remaining > 1 ? 's criadas' : ' criada'));
+
+    } else if (!isFlowForm && isRepeat) {
+      // Create recurring entries for upcoming periods
+      const groupId = uid();
+      const count   = freq === 'yearly' ? 5 : freq === 'monthly' ? 12 : 12;
+      for (let i = 0; i < count; i++) {
+        expenses.push({
+          id:        uid(),
+          createdAt: Date.now(),
+          groupId,
+          ...baseData,
+          due:       addPeriod(due, freq, i),
+          status:    'pending'
+        });
+      }
+      showToast(count + ' ocorrências criadas');
+
     } else {
-      expenses.unshift({ id: uid(), createdAt: Date.now(), ...expData });
-      showToast('Despesa adicionada');
+      expenses.unshift({ id: uid(), createdAt: Date.now(), ...baseData });
+      showToast(isFlowForm ? 'Gasto adicionado' : 'Despesa adicionada');
     }
 
     saveExpenses(expenses);
@@ -1490,23 +2971,89 @@
     renderFinanceList();
   });
 
+  /* ── EDIT SCOPE MODAL ──────────────────────────────────────────── */
+  function applyEditScope(onlyThis) {
+    if (!pendingSaveData) return;
+    const { baseData, editingId } = pendingSaveData;
+    const exp = expenses.find(e => e.id === editingId);
+    if (onlyThis) {
+      // Remove from group so it becomes standalone
+      const idx = expenses.findIndex(e => e.id === editingId);
+      if (idx !== -1) expenses[idx] = { ...expenses[idx], ...baseData, groupId: undefined };
+      showToast('Despesa atualizada');
+    } else {
+      // Update this + all group entries with due >= this entry's due
+      const thisDue = exp ? exp.due : '';
+      const gid     = exp ? exp.groupId : null;
+      expenses = expenses.map(e => {
+        if (e.groupId !== gid) return e;
+        if ((e.due || '') < thisDue) return e; // earlier — keep untouched
+        // Preserve the due date and parcCurrent of each entry; update the rest
+        return { ...e, ...baseData, due: e.due, parcCurrent: e.parcCurrent, groupId: gid };
+      });
+      showToast('Despesas atualizadas');
+    }
+    pendingSaveData = null;
+    document.getElementById('modal-edit-scope').classList.remove('open');
+    saveExpenses(expenses);
+    renderFinanceList();
+  }
+  document.getElementById('edit-scope-one').addEventListener('click',     () => applyEditScope(true));
+  document.getElementById('edit-scope-forward').addEventListener('click', () => applyEditScope(false));
+  document.getElementById('edit-scope-cancel').addEventListener('click', () => {
+    pendingSaveData = null;
+    document.getElementById('modal-edit-scope').classList.remove('open');
+  });
+  document.getElementById('modal-edit-scope').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-edit-scope')) {
+      pendingSaveData = null;
+      document.getElementById('modal-edit-scope').classList.remove('open');
+    }
+  });
+
   /* ── DELETE EXPENSE ─────────────────────────────────────────────── */
   document.getElementById('ef-delete').addEventListener('click', () => {
     deleteExpId = editingExpId;
     closeExpenseForm();
+    // Check if this expense belongs to a group with siblings
+    const exp      = expenses.find(e => e.id === deleteExpId);
+    const siblings = exp && exp.groupId ? expenses.filter(e => e.groupId === exp.groupId) : [];
+    const allBtn    = document.getElementById('del-exp-confirm-all');
+    const msg       = document.getElementById('del-exp-msg');
+    const singleBtn = document.getElementById('del-exp-confirm');
+    if (siblings.length > 1) {
+      allBtn.style.display = 'block';
+      allBtn.textContent = `Excluir todas do grupo (${siblings.length})`;
+      singleBtn.textContent = 'Só esta';
+      msg.textContent = 'Esta despesa faz parte de um grupo. Excluir só esta ou todas do grupo?';
+    } else {
+      allBtn.style.display = 'none';
+      singleBtn.textContent = 'Excluir';
+      msg.textContent = 'A despesa será removida permanentemente do seu controle financeiro.';
+    }
     document.getElementById('modal-del-expense').classList.add('open');
   });
-  document.getElementById('del-exp-cancel').addEventListener('click', () => {
+  function closeDelExpModal() {
     document.getElementById('modal-del-expense').classList.remove('open');
     deleteExpId = null;
-  });
+  }
+  document.getElementById('del-exp-cancel').addEventListener('click', closeDelExpModal);
   document.getElementById('del-exp-confirm').addEventListener('click', () => {
     expenses = expenses.filter(e => e.id !== deleteExpId);
     saveExpenses(expenses);
-    document.getElementById('modal-del-expense').classList.remove('open');
-    deleteExpId = null;
+    closeDelExpModal();
     renderFinanceList();
     showToast('Despesa excluída');
+  });
+  document.getElementById('del-exp-confirm-all').addEventListener('click', () => {
+    const exp = expenses.find(e => e.id === deleteExpId);
+    const gid = exp && exp.groupId;
+    if (gid) expenses = expenses.filter(e => e.groupId !== gid);
+    else expenses = expenses.filter(e => e.id !== deleteExpId);
+    saveExpenses(expenses);
+    closeDelExpModal();
+    renderFinanceList();
+    showToast('Grupo excluído');
   });
 
   document.getElementById('btn-new-expense').addEventListener('click', () => openExpenseForm(null));
@@ -1515,10 +3062,7 @@
     if (e.target === document.getElementById('modal-expense')) closeExpenseForm();
   });
   document.getElementById('modal-del-expense').addEventListener('click', e => {
-    if (e.target === document.getElementById('modal-del-expense')) {
-      document.getElementById('modal-del-expense').classList.remove('open');
-      deleteExpId = null;
-    }
+    if (e.target === document.getElementById('modal-del-expense')) closeDelExpModal();
   });
 
   /* ── SHAKE HELPER ───────────────────────────────────────────────── */
